@@ -15,16 +15,16 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     interface="org.opendaylight.controller.md.sal.binding.api.DataBroker"
     odl:type="default" />
 
-  <bean id="cliCommandsImpl" class="org.jbh.controller.cli.impl.ControllerCliCommandsImpl">
+  <bean id="cliCommandsImpl" class="org.jbh.flowcontroller.cli.impl.FlowcontrollerCliCommandsImpl">
     <argument ref="dataBroker" />
   </bean>
 
   <service ref="cliCommandsImpl" odl:type="default"
-    interface="org.jbh.controller.cli.api.ControllerCliCommands" />
+    interface="org.jbh.flowcontroller.cli.api.FlowcontrollerCliCommands" />
 
   <command-bundle xmlns="http://karaf.apache.org/xmlns/shell/v1.1.0">
     <command>
-        <action class="org.jbh.controller.cli.commands.ControllerCliTestCommand">
+        <action class="org.jbh.flowcontroller.cli.commands.FlowcontrollerCliTestCommand">
             <argument ref="cliCommandsImpl"/>
         </action>
     </command>

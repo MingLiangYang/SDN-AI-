@@ -15,17 +15,17 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
     <relativePath/>
   </parent>
 
-  <groupId>org.jbh.controller</groupId>
-  <artifactId>controller-aggregator</artifactId>
+  <groupId>org.jbh.flowcontroller</groupId>
+  <artifactId>flowcontroller-aggregator</artifactId>
   <version>0.1.0</version>
-  <name>controller</name> <!-- DO NOT CHANGE - Used by Sonar to set project name -->
+  <name>flowcontroller</name> <!-- DO NOT CHANGE - Used by Sonar to set project name -->
   <packaging>pom</packaging>
 
   <scm>
-    <connection>scm:git:ssh://git.opendaylight.org:29418/controller.git</connection>
-    <developerConnection>scm:git:ssh://git.opendaylight.org:29418/controller.git</developerConnection>
+    <connection>scm:git:ssh://git.opendaylight.org:29418/flowcontroller.git</connection>
+    <developerConnection>scm:git:ssh://git.opendaylight.org:29418/flowcontroller.git</developerConnection>
     <tag>HEAD</tag>
-    <url>https://wiki.opendaylight.org/view/controller:Main</url>
+    <url>https://wiki.opendaylight.org/view/flowcontroller:Main</url>
   </scm>
 
   <modules>

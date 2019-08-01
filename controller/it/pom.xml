@@ -17,12 +17,12 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <relativePath/>
   </parent>
 
-  <groupId>org.jbh.controller</groupId>
-  <artifactId>controller-it</artifactId>
+  <groupId>org.jbh.flowcontroller</groupId>
+  <artifactId>flowcontroller-it</artifactId>
   <version>0.1.0</version>
   <!-- <name> formatting is used by autorelease to parse and notify projects on
        build failure. Please do not modify this unless you have a good reason. -->
-  <name>ODL :: org.jbh.controller :: ${project.artifactId}</name>
+  <name>ODL :: org.jbh.flowcontroller :: ${project.artifactId}</name>
 
   <properties>
     <skipITs>false</skipITs>
@@ -31,7 +31,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>features-controller</artifactId>
+      <artifactId>features-flowcontroller</artifactId>
       <version>${project.version}</version>
       <type>xml</type>
       <classifier>features</classifier>

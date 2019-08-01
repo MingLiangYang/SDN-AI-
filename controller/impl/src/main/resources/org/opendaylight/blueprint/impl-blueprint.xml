@@ -15,10 +15,39 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     interface="org.opendaylight.controller.md.sal.binding.api.DataBroker"
     odl:type="default" />
 
+  <reference id="notificationService"
+             interface="org.opendaylight.controller.md.sal.binding.api.NotificationService"/>
+
+  <reference id="notificationPublishService"
+             interface="org.opendaylight.controller.md.sal.binding.api.NotificationPublishService"/>
+
+  <odl:rpc-service id="salFlowService"
+                   interface="org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService" />
+  <odl:rpc-service id="packetHandlerService"
+                   interface="org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService" />
+
   <bean id="provider"
-    class="org.jbh.controller.impl.ControllerProvider"
-    init-method="init" destroy-method="close">
+        class="org.jbh.flowcontroller.impl.defender.DefenderProvider"
+        init-method="init" destroy-method="close">
     <argument ref="dataBroker" />
+    <argument ref="notificationPublishService" />
+    <argument ref="notificationService" />
+  </bean>
+
+  <bean id="initFlowWriter"
+        class="org.jbh.flowcontroller.impl.InitFlowWriter"
+        init-method="init" destroy-method="close">
+    <argument ref="dataBroker"/>
+    <argument ref="salFlowService" />
+  </bean>
+
+  <bean id="packetHandler"
+        class="org.jbh.flowcontroller.impl.packethandler.PacketInHandler"
+        init-method="init" destroy-method="close">
+    <argument ref="dataBroker" />
+    <argument ref="notificationService" />
+    <argument ref="salFlowService" />
+    <argument ref="packetHandlerService"/>
   </bean>
 
 </blueprint>
