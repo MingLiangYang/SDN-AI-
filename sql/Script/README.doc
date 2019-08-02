@@ -1,0 +1,10 @@
+1
+C语言程序文件：Packet_in_Process(without index).cpp处理数据得到结果并写入文本文档（.txt）文件中。其中，攻击流量数据放入文件夹：packet_in_src_attack，正常流量数据放入文件夹：packet_in_src_normal。然后启动mysql数据库，执行Mysql.Sql脚本，可得到含有处理后数据的多张表。
+注意：
+1.Packet_in_Process(without index).cpp处理后的数据以时间戳进行区分，没有用index，但和AI模块进行对接时，删除了时间戳，使用index进行区分（index的值从1开始自增）。
+实现这个功能的文件是：AI.cpp
+2.如果控制器给出的数据没有将攻击流量和正常流量放在不同的文件下，要先分开放在不同的文件后再使用Packet_in_Process(without index).cpp进行处理。这个功能的实现文件是：DivideData.cpp。该程序根据时间戳进行区分，时间戳是指从时间(1970-1-1, 00:00:00)至今的秒数，在Judge函数中手动改变时间戳即可对不同时间段的流量进行区分。（即：时间戳的范围需要用户自己指定）
+2
+C语言程序文件：Ovs_Process.cpp处理数据得到结果并写入文本文档（.txt）文件中。该项内容由于数据问题有很多细节需要完善，现实现的部分是读取mydebug文件并处理该文件的数据，将处理结果写入ovs_result文件夹下的文本文件中。然后执行 脚本，可得名为ovs的一张表。
+3
+Mysql（info）.sql脚本与Mysql.sql脚本的不同之处在于它将原始数据和处理后的数据都导入数据库，由于多了原始数据而时间消耗大大增加。Mysql.sql脚本只导入处理后的数据，时间消耗较少。另：注意Mysql.sql每次都会由Packet_in_Process(without index).cpp程序根据所读文件的数目进行更新（即有多少个数据文件就对应创建多少个表），由于Mysql（info）.sql和Mysql.sql的内容差不多，只是增加了创建info表和向info表导入信息的操作，请读者自行根据Mysql.sql得到Mysql(info).sql。
