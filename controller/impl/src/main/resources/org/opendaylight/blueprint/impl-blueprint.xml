@@ -50,4 +50,10 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="packetHandlerService"/>
   </bean>
 
+  <bean id="statsProvider"
+        class="org.jbh.flowcontroller.impl.ovsstats.statsProvider"
+        init-method="init" destroy-method="close" >
+    <argument ref="dataBroker" />
+  </bean>
+
 </blueprint>
