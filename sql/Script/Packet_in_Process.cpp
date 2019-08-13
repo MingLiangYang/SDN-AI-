@@ -1,4 +1,4 @@
-//¸Ã³ÌĞòÃ¿´Î´¦ÀíÎÄ¼ş£¬ÍùÊı¾İ¿âÀïĞ´Êı¾İÊ±£¬¶¼»á°ÑÔ­À´µÄÊı¾İÉ¾³ı£¬ÒªÏëÊµÏÖ×·¼Ó¹¦ÄÜ£¬ĞèÒª°ÑÊı¾İ±íÏîÀïµÄindexÉ¾³ı¡£È»ºóÓÃÊ±¼ä´ÁTicktime×÷ÎªÖ÷¼ü¡£ 
+//è¯¥ç¨‹åºæ¯æ¬¡å¤„ç†æ–‡ä»¶ï¼Œå¾€æ•°æ®åº“é‡Œå†™æ•°æ®æ—¶ï¼Œéƒ½ä¼šæŠŠåŸæ¥çš„æ•°æ®åˆ é™¤ï¼Œè¦æƒ³å®ç°è¿½åŠ åŠŸèƒ½ï¼Œéœ€è¦æŠŠæ•°æ®è¡¨é¡¹é‡Œçš„indexåˆ é™¤ã€‚ç„¶åç”¨æ—¶é—´æˆ³Ticktimeä½œä¸ºä¸»é”®ã€‚ 
 
 #include<iostream>
 #include<vector>
@@ -8,9 +8,10 @@
 #include<algorithm>
 using namespace std;
 #define TINF 9e13
-#define delT 5
-#define filePath  "D:\\Mysql\\sql½Å±¾ÎÄ¼ş\\packet_in_src"
-#define BEGIN 35
+#define delT 2
+#define filePath1  "D:\\Mysql\\sql\\packet_in_src_attack"
+#define filePath  "D:\\Mysql\\sql\\packet_in_src_normal"
+#define BEGIN 34  //BEGIN ä»£è¡¨filepathçš„å­—ç¬¦æ•°ï¼Œç”¨æ¥ç”Ÿæˆç›®æ ‡æ–‡ä»¶å 
 struct SubRecord {
 	long long time;
 	string src_ip;
@@ -19,49 +20,116 @@ struct SubRecord {
 	int dst_port;
 	int size;
 };
+int INDEXNUMBER=0; //è®°å½•ä¸€æ¬¡å¤„ç†æœ‰å¤šå°‘æ¡æ”»å‡»è®°å½•ï¼Œæ–¹ä¾¿AIæ¨¡å—è¯»å–æ•°æ® 
 vector<string> files;
 vector<SubRecord> Record,PartRecord;
-map<string,int> IPSrcMap,IPDstMap;//Í³¼ÆÃ¿Ò»¸öipµØÖ·³öÏÖµÄ¸öÊı£¬¼ÆËãìØÖµÊ±Ê¹ÓÃ
-map<int,int>PortSrcMap,PortDstMap;//Í³¼ÆÃ¿Ò»¸ö¶Ë¿Ú³öÏÖµÄ¸öÊı£¬¼ÆËãìØÖµÊ±Ê¹ÓÃ
+map<string,int> IPSrcMap,IPDstMap,HIP;//ç»Ÿè®¡æ¯ä¸€ä¸ªipåœ°å€å‡ºç°çš„ä¸ªæ•°ï¼Œè®¡ç®—ç†µå€¼æ—¶ä½¿ç”¨
+map<int,int>PortSrcMap,PortDstMap;//ç»Ÿè®¡æ¯ä¸€ä¸ªç«¯å£å‡ºç°çš„ä¸ªæ•°ï¼Œè®¡ç®—ç†µå€¼æ—¶ä½¿ç”¨
 map<string,int>::iterator Iter;
 map<int,int>::iterator IterInt;
 bool cmp(SubRecord a,SubRecord b){return a.time<b.time;}
-int StrToInt(string s);//°Ñ×Ö·û´®ĞÍÊı¾İ×ªÎªÕûĞÍ²¢·µ»ØÕûĞÍ½á¹û
-int Process1(string str);//´¦ÀíÊ±¼äºÍÈÕÆÚµÄµÚÒ»¸öº¯Êı£¬´¦ÀíÄê¡¢ÔÂ¡¢ÈÕ
-int Process2(string str);//´¦ÀíÊ±¼äºÍÈÕÆÚµÄµÚ¶ş¸öº¯Êı£¬´¦ÀíÊ±¡¢·Ö¡¢Ãë
-string GetString(FILE *f);//´ÓÎÄ¼şÖĞ¶Á³öÒ»¸ö×Ö·û´®£¬²¢·µ»Ø¶Áµ½µÄ×Ö·û´®
-void ProcessOneLine(FILE *f,FILE *tempf);//´¦ÀíÎÄ¼şÖĞµÄÒ»ĞĞ¼ÇÂ¼£¬µÃµ½Ò»¸ö½á¹¹Ìå£¨SubRecord£©£¬²¢°Ñ½á¹¹ÌåÑ¹ÈëÏòÁ¿RecordÖĞ£¬Í¬Ê±½«¸Ã½á¹¹ÌåµÄÃ¿Ò»¸ö³ÉÔ±Ğ´ÈëÖĞ¼äÊı¾İÎÄ¼ş
-void GainRecord(FILE *f,vector<SubRecord> Record);//´¦ÀíÏòÁ¿Record£¬¼ÆËãìØÖµ£¬µÃµ½×îÖÕÃ¿Ìõ¼ÇÂ¼µÄ¸÷ÏîÊı¾İ£¬²¢½«Êı¾İ´æÈëfÖ¸ÏòµÄÎÄ¼şÖĞ//×¢Òâ£ºÒªÇóRecordÖĞµÄ¼ÇÂ¼ÊÇ°´ÕÕtimeÉıĞòÅÅÁĞ 
+int StrToInt(string s);//æŠŠå­—ç¬¦ä¸²å‹æ•°æ®è½¬ä¸ºæ•´å‹å¹¶è¿”å›æ•´å‹ç»“æœ
+int Process1(string str);//å¤„ç†æ—¶é—´å’Œæ—¥æœŸçš„ç¬¬ä¸€ä¸ªå‡½æ•°ï¼Œå¤„ç†å¹´ã€æœˆã€æ—¥
+int Process2(string str);//å¤„ç†æ—¶é—´å’Œæ—¥æœŸçš„ç¬¬äºŒä¸ªå‡½æ•°ï¼Œå¤„ç†æ—¶ã€åˆ†ã€ç§’
+string GetString(FILE *f);//ä»æ–‡ä»¶ä¸­è¯»å‡ºä¸€ä¸ªå­—ç¬¦ä¸²ï¼Œå¹¶è¿”å›è¯»åˆ°çš„å­—ç¬¦ä¸²
+void ProcessOneLine(FILE *f,FILE *tempf);//å¤„ç†æ–‡ä»¶ä¸­çš„ä¸€è¡Œè®°å½•ï¼Œå¾—åˆ°ä¸€ä¸ªç»“æ„ä½“ï¼ˆSubRecordï¼‰ï¼Œå¹¶æŠŠç»“æ„ä½“å‹å…¥å‘é‡Recordä¸­ï¼ŒåŒæ—¶å°†è¯¥ç»“æ„ä½“çš„æ¯ä¸€ä¸ªæˆå‘˜å†™å…¥ä¸­é—´æ•°æ®æ–‡ä»¶
+void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag);//å¤„ç†å‘é‡Recordï¼Œè®¡ç®—ç†µå€¼ï¼Œå¾—åˆ°æœ€ç»ˆæ¯æ¡è®°å½•çš„å„é¡¹æ•°æ®ï¼Œå¹¶å°†æ•°æ®å­˜å…¥fæŒ‡å‘çš„æ–‡ä»¶ä¸­//æ³¨æ„ï¼šè¦æ±‚Recordä¸­çš„è®°å½•æ˜¯æŒ‰ç…§timeå‡åºæ’åˆ— //Tagæ˜¯0ä»£è¡¨æ­£å¸¸æµé‡ï¼ŒTagæ˜¯1ä»£è¡¨æ”»å‡»æµé‡ 
 void getFiles( string path, vector<string>& files );
 void CreateTable(string temps,FILE *SQLfp);
+long long StrToLong(string s) {
+	long long result=0;
+	for(int i=0; i<s.size(); i++) {
+		result+=(s[i]-'0')*pow(10,s.size()-1-i);
+	}
+	return result;
+}
+void ChangeTime(long long &time)
+{
+	int temps=time%100,tempm;
+	temps+=delT;
+	if(temps>=60)
+	{
+		temps-=60;
+		time/=100;
+		tempm=time%100;
+		tempm++;
+		if(tempm>=60)
+		{
+			tempm=0;
+			time/=100;
+			time++;
+			time*=10000;
+			time+=temps;
+		}
+		else
+		{
+			time++;
+			time*=100;
+			time+=temps;
+		}
+	}
+	else
+	{
+		time+=delT;
+	}
+}
 int main() {
-	int i=0,j=0;
+	int i=0,j=0,AttackRecord;
 	SubRecord Tail;
 	Tail.time=TINF;
-	FILE *fp,*resfp,*tempfp,*SQLfp;
+	FILE *fp,*resfp,*tempfp,*SQLfp,*AIfp;
 
 	getFiles(filePath, files);
 
 	if((resfp=fopen("packet_in_result\\packet_in_vector.txt","w"))==NULL) {
 		printf("The file can not be open!");
-		exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+		exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 	}
 	if((tempfp=fopen("packet_in_result\\packet_in_info.txt","w"))==NULL) {
 		printf("The file can not be open!");
-		exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+		exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 	}
 	if((SQLfp=fopen("Mysql.sql","w"))==NULL) {
 		printf("The file can not be open!");
-		exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+		exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 	}
-	fputs("time,src_ip,dst_ip,src_port,dst_port,size\n",tempfp);//ÖĞ¼äÊı¾İÎÄ¼ş
-
+	if((AIfp=fopen("packet_in_result\\Number.txt","w"))==NULL) {
+		printf("The file can not be open!");
+		exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
+	}
+	fputs("time,src_ip,dst_ip,src_port,dst_port,size\n",tempfp);//ä¸­é—´æ•°æ®æ–‡ä»¶
+	//cout<<files.size()<<endl;
 	for(int i=0; i<files.size(); i++) {
 		PartRecord.clear();
 		if((fp=fopen(files[i].c_str(),"r"))==NULL) {
 			printf("The file can not be open!");
-			exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+			exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 		}
+		while(!feof(fp)) {
+			ProcessOneLine(fp,tempfp);
+		}
+		PartRecord.push_back(Tail);
+		FILE *tempf;
+		string temps="packet_in_result\\";
+		//cout<<files[i]<<endl;
+		for(j=BEGIN; j<files[i].size(); j++)temps+=files[i][j];
+		tempf=fopen(temps.c_str(),"w");
+		cout<<"1: "<<temps<<endl;
+		GainRecord(tempf,resfp,PartRecord,0);
+		CreateTable(temps,SQLfp);
+	}
+	files.clear();
+//	fprintf(AIfp,"%d ",INDEXNUMBER);
+	//fprintf(indexfp,"%d",INDEXNUMBER);//cout<<INDEXNUMBER<<endl;
+	//ä»¥ä¸‹æ˜¯æ­£å¸¸æ–‡ä»¶è¯»å– 
+	getFiles(filePath1, files);
+	for(int i=0; i<files.size(); i++) {
+		PartRecord.clear();
+		if((fp=fopen(files[i].c_str(),"r"))==NULL) {
+			printf("The file can not be open!");
+			exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
+		}
+		//cout<<i<<" "<<files[i]<<endl;
 		while(!feof(fp)) {
 			ProcessOneLine(fp,tempfp);
 		}
@@ -70,26 +138,15 @@ int main() {
 		string temps="packet_in_result\\";
 		for(j=BEGIN; j<files[i].size(); j++)temps+=files[i][j];
 		tempf=fopen(temps.c_str(),"w");
-		GainRecord(tempf,PartRecord);
+		cout<<"2: "<<temps<<endl;
+		GainRecord(tempf,resfp,PartRecord,1);
 		CreateTable(temps,SQLfp);
 	}
-//	if((fp=fopen("result.txt","r"))==NULL)//packet_inÊÇ´¦ÀíÖ®Ç°µÄÎÄ¼şÃû
-//	{
-//		printf("The file can not be open!");
-//    	exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
-//	}
-//	while(!feof(fp))
-//	{
-//		j++;
-//		ProcessOneLine(fp,tempfp,j);
-//	}
-	Record.push_back(Tail);//Ñ¹ÈëÒ»¸öÎ²Êı¾İ£¨½Úµã£©ÆäÊ±¼äÈ¡Öµ¿ÉÈÏÎªÊÇÎŞÇî´ó
-	sort(Record.begin(),Record.end(),cmp);
-	GainRecord(resfp,Record);
-	//cout<<Record.size();
-	CreateTable("packet_in_result\\packet_in_vector.txt",SQLfp);
+	fprintf(AIfp,"%d ",INDEXNUMBER);
 
-	cout<<"over£¬µ¼ÈëÎÄ¼ş£ºpacket_in_vector.txtÖÁÊı¾İ¿â";
+	CreateTable("packet_in_result\\packet_in_vector.txt",SQLfp);
+	
+	cout<<"overï¼Œå¯¼å…¥æ–‡ä»¶ï¼špacket_in_vector.txtè‡³æ•°æ®åº“";
 	return 0;
 }
 void CreateTable(string temps,FILE *SQLfp) {
@@ -98,12 +155,12 @@ void CreateTable(string temps,FILE *SQLfp) {
 	for(i=17; i<temps.size(); i++)
 		if(temps[i]!='.')Str+=temps[i];
 		else break;
-	fprintf(SQLfp,"DROP TABLE IF EXISTS `%s`;CREATE TABLE `%s`  (`index` int(255) NOT NULL AUTO_INCREMENT,`TickName` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,",Str.c_str(),Str.c_str());
+	fprintf(SQLfp,"DROP TABLE IF EXISTS `%s`;CREATE TABLE `%s`  (`TickName` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,",Str.c_str(),Str.c_str());
 	fprintf(SQLfp,"`PktNum` int(20) NOT NULL,`PktNumRate` double(255, 2) NOT NULL,`AvgLength` double(255, 2) NOT NULL,");
-	fprintf(SQLfp,"`IpEntropy` double(255, 5) NOT NULL,`PortEntropy` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,PRIMARY KEY (`index`) USING BTREE) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci\n");
+	fprintf(SQLfp,"`IpEntropy` double(255, 5) NOT NULL,`PortEntropy` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,`Tag` int(255) NOT NULL) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci\n");
 	fprintf(SQLfp,"ROW_FORMAT = Dynamic;SET FOREIGN_KEY_CHECKS = 1;\n");
-	fprintf(SQLfp,"load data infile \"D:\\\\Mysql\\\\sql½Å±¾ÎÄ¼ş\\\\packet_in_result\\\\%s.txt\" into table %s fields terminated by ',' lines terminated by '\\n' ;",Str.c_str(),Str.c_str());
-//	temps="D:\\Mysql\\sql½Å±¾ÎÄ¼ş\\"+temps;
+	fprintf(SQLfp,"load data infile \"D:\\\\Mysql\\\\sql\\\\packet_in_result\\\\%s.txt\" into table %s fields terminated by ',' lines terminated by '\\n' ;",Str.c_str(),Str.c_str());
+//	temps="D:\\Mysql\\sqlè„šæœ¬æ–‡ä»¶\\"+temps;
 //	cout<<temps<<endl;
 //	fprintf(SQLfp,"load data infile \"%s\" into table %s fields terminated by ',' lines terminated by '\\n' ;",temps.c_str(),Str.c_str());
 }
@@ -153,9 +210,10 @@ void ProcessOneLine(FILE *f,FILE *tempf) {
 	SubRecord SR;
 	GetString(f);
 	Str=GetString(f);//cout<<Str<<"  ";
-	SR.time=(long long)Process1(Str)*1000000;
-	Str=GetString(f);//cout<<Str<<endl;
-	SR.time+=(long long)Process2(Str);
+//	SR.time=(long long)Process1(Str)*1000000;
+//	Str=GetString(f);//cout<<Str<<endl;
+//	SR.time+=(long long)Process2(Str);
+	SR.time=StrToLong(Str);
 	//Str=GetString(f);
 	//if(Str=="PM"||Str=="pm"||Str=="pM"||Str=="Pm") SR.time+=120000;
 	GetString(f);
@@ -170,19 +228,24 @@ void ProcessOneLine(FILE *f,FILE *tempf) {
 	SR.size=StrToInt(GetString(f));
 	Record.push_back(SR);
 	PartRecord.push_back(SR);
+	//cout<<SR.time<<"  "<<SR.src_ip<<" "<<SR.dst_ip<<" "<<SR.src_port<<" "<<SR.dst_port<<" "<<SR.size<<endl;
 	fprintf(tempf,"%lld,%s,%s,%d,%d,%d\n",SR.time,SR.src_ip.c_str(),SR.dst_ip.c_str(),SR.src_port,SR.dst_port,SR.size);
 }
-void GainRecord(FILE *f,vector<SubRecord> Record) {
-	//fputs("TickName,PktNum,PktNumRate,AvgLength,IpEntropy,PortEntropy\n",f);//×îÖÕÊı¾İÎÄ¼ş
+void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag) {
+	//fputs("TickName,PktNum,PktNumRate,AvgLength,IpEntropy,PortEntropy\n",f);//æœ€ç»ˆæ•°æ®æ–‡ä»¶
 	PortDstMap.clear();
 	PortSrcMap.clear();
 	IPDstMap.clear();
 	IPSrcMap.clear();
+	HIP.clear();
 	int i,PktNum=0,PrePktNum=0,index=0;
-	double PktNumRate=0,Avglength=0,IPSrcEntropy=0,IPDstEntropy=0,PortSrcEntropy=0,PortDstEntropy=0;
-	long long begintime;//cout<<Record.size()<<" ";
+	double PktNumRate=0,Avglength=0,IPSrcEntropy=0,IPDstEntropy=0,PortSrcEntropy=0,PortDstEntropy=0,HIPEntropy=0;
+	long long begintime=0,tempT;//cout<<Record.size()<<" ";
 	for(i=0,begintime=Record[0].time,PktNum=0; i<Record.size(); i++) {
-		//	cout<<Record[i].time-begintime<<endl;
+		//	cout<<Record[i].time-begintime;//DateCompute(Record[i].time,begintime)
+//		tempT=Record[i].time-begintime;
+//		if(tempT>40)tempT-=40;
+		//if(Record[i].time==1499255372) cout<<begintime<<endl;
 		if(Record[i].time-begintime<delT) {
 			PktNum++;
 			Avglength+=Record[i].size;
@@ -192,6 +255,10 @@ void GainRecord(FILE *f,vector<SubRecord> Record) {
 			if(IPDstMap.find(Record[i].dst_ip)==IPDstMap.end()) {
 				IPDstMap.insert(pair<string,int>(Record[i].dst_ip,1));
 			} else IPDstMap[Record[i].dst_ip]++;
+//			if(HIP.find(Record[i].src_ip+Record[i].dst_ip)==HIP.end())
+//			{
+//				HIP.insert(pair<string,int>(Record[i].src_ip+Record[i].dst_ip,1));
+//			} else HIP[Record[i].src_ip+Record[i].dst_ip]++;
 			if(PortSrcMap.find(Record[i].src_port)==PortSrcMap.end()) {
 				PortSrcMap.insert(pair<int,int>(Record[i].src_port,1));
 			} else PortSrcMap[Record[i].src_port]++;
@@ -201,28 +268,42 @@ void GainRecord(FILE *f,vector<SubRecord> Record) {
 		} else {
 			if(PktNum>1) 
 			{
+				INDEXNUMBER++; 
 				Avglength=Avglength/PktNum;
 				if(PrePktNum!=0)PktNumRate=(double)(PrePktNum-PktNum)/PrePktNum;
 				else PktNumRate=0;
 				for(Iter=IPSrcMap.begin(); Iter!=IPSrcMap.end(); Iter++)	IPSrcEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
 				for(Iter=IPDstMap.begin(); Iter!=IPDstMap.end(); Iter++)	IPDstEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
+				//for(Iter=HIP.begin(); Iter!=HIP.end(); Iter++)	HIPEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
 				for(IterInt=PortSrcMap.begin(); IterInt!=PortSrcMap.end(); IterInt++)	PortSrcEntropy+=((double)IterInt->second/PktNum)*log((double)IterInt->second/PktNum);
 				for(IterInt=PortDstMap.begin(); IterInt!=PortDstMap.end(); IterInt++)	PortDstEntropy+=((double)IterInt->second/PktNum)*log((double)IterInt->second/PktNum);
-				fprintf(f,"%d,%lld-%lld,%d,%.2f,%.2f,",++index,begintime,begintime+delT,PktNum,PktNumRate,Avglength);
+				fprintf(f,"%lld-%lld,%d,%.2f,%.2f,",begintime,begintime+delT,PktNum,PktNumRate,Avglength);
 				if(IPDstEntropy!=0)fprintf(f,"%.5f,",IPSrcEntropy/IPDstEntropy);
 				else fprintf(f,"%.5f,",0);
-				if(PortDstEntropy!=0)fprintf(f,"%.5f\n",PortSrcEntropy/PortDstEntropy);
-				else fprintf(f,"%.5f\n",0);
+				if(PortDstEntropy!=0)fprintf(f,"%.5f,",PortSrcEntropy/PortDstEntropy);
+				else fprintf(f,"%.5f,",0); 
+				fprintf(f,"%d\n",Tag); 
+			//	cout<<begintime<<endl;
+				fprintf(res,"%lld-%lld,%d,%.2f,%.2f,",begintime,begintime+delT,PktNum,PktNumRate,Avglength);
+				if(IPDstEntropy!=0)fprintf(res,"%.5f,",IPSrcEntropy/IPDstEntropy);
+				else fprintf(res,"%.5f,",0);
+				if(PortDstEntropy!=0)fprintf(res,"%.5f,",PortSrcEntropy/PortDstEntropy);
+				else fprintf(res,"%.5f,",0); 
+				fprintf(res,"%d\n",Tag); 
 				if(i!=Record.size()-1)i--;
 				PrePktNum=PktNum;
 			}
 			begintime+=delT;
+		//	ChangeTime(begintime);
+		//	cout<<"  beginres: "<<begintime<<endl;
 			PktNum=0;
 			Avglength=0;
 			PortDstMap.clear();
 			PortSrcMap.clear();
 			IPDstMap.clear();
 			IPSrcMap.clear();
+//			HIP.clear();
+//			HIPEntropy=0; 
 			IPSrcEntropy=0;
 			IPDstEntropy=0;
 			PortSrcEntropy=0;
@@ -231,15 +312,16 @@ void GainRecord(FILE *f,vector<SubRecord> Record) {
 	}
 }
 void getFiles( string path, vector<string>& files ) {
-	//ÎÄ¼ş¾ä±ú
+	//æ–‡ä»¶å¥æŸ„
 	long   hFile   =   0;
-	//ÎÄ¼şĞÅÏ¢
+	//æ–‡ä»¶ä¿¡æ¯
+	//cout<<endl<<" path:"<<path<<endl;
 	struct _finddata_t fileinfo;
 	string p;
 	if((hFile = _findfirst(p.assign(path).append("\\*").c_str(),&fileinfo)) !=  -1) {
 		do {
-			//Èç¹ûÊÇÄ¿Â¼,µü´úÖ®
-			//Èç¹û²»ÊÇ,¼ÓÈëÁĞ±í
+			//å¦‚æœæ˜¯ç›®å½•,è¿­ä»£ä¹‹
+			//å¦‚æœä¸æ˜¯,åŠ å…¥åˆ—è¡¨
 			if((fileinfo.attrib &  _A_SUBDIR)) {
 				if(strcmp(fileinfo.name,".") != 0  &&  strcmp(fileinfo.name,"..") != 0)
 					getFiles( p.assign(path).append("\\").append(fileinfo.name), files );

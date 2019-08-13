@@ -2,142 +2,242 @@
 #include<vector>
 #include<math.h>
 #include<map>
+#include<algorithm>
 using namespace std;
+#define filePath  "D:\\Mysql\\sql\\ovs_src_normal"
+#define filePathR  "D:\\Mysql\\sql\\ovs_result"
 #define delT 5
 #define TINF 9e8
-struct SubRecord//deltaT×Ô¼º¾ö¶¨£¬HiÊÇ¼ÆËãµÃµ½ 
+struct Port
 {
-	long long time;
-	string src_ip;
-	string dst_ip;
-	int src_port;
-	int dst_port;
-	int packet_total;
-	int packet_suc;
-	int byte_sum;
-	float CPUi;
-	string Si;
+	string switchid;
+	string portid;
+	int PacketReceivedAll;
+	int PacketReceivedSuccess;
+	int PacketsTransmittedAll;
+	int PacketTransmittedSuccess;
+	int ByteReceivedAll;
+	int ByteTransmittedAll;
+}; 
+struct IP_info
+{
+	string switchid;
+	string Src_ip;
+	string Dst_ip;
+	string Inport;
+	string OutPort;
+	int Packet;
+	int Byte;
 };
-vector<SubRecord> Record,ResultR;
-map<string,int> IPSrcMap;//Í³¼ÆÃ¿Ò»¸öipµØÖ·³öÏÖµÄ¸öÊı£¬¼ÆËãìØÖµÊ±Ê¹ÓÃ
-map<int,int>PortSrcMap;//Í³¼ÆÃ¿Ò»¸ö¶Ë¿Ú³öÏÖµÄ¸öÊı£¬¼ÆËãìØÖµÊ±Ê¹ÓÃ
-map<string,int>::iterator Iter;
-map<int,int>::iterator IterInt;
-
-long long StrToInt(string s);//°Ñ×Ö·û´®ĞÍÊı¾İ×ªÎªÕûĞÍ²¢·µ»ØÕûĞÍ½á¹û
-string GetString(FILE *f);//´ÓÎÄ¼şÖĞ¶Á³öÒ»¸ö×Ö·û´®£¬²¢·µ»Ø¶Áµ½µÄ×Ö·û´® 
-void Process1Logic(FILE *f);
+vector<IP_info> PreIP,CurIP;
+vector<Port> Pre,Cur;
+long long StrToLInt(string s);//æŠŠå­—ç¬¦ä¸²å‹æ•°æ®è½¬ä¸ºæ•´å‹å¹¶è¿”å›æ•´å‹ç»“æœ
+int StrToInt(string s);
+bool Judge(IP_info a,IP_info b);
+string GetString(FILE *f);//ä»æ–‡ä»¶ä¸­è¯»å‡ºä¸€ä¸ªå­—ç¬¦ä¸²ï¼Œå¹¶è¿”å›è¯»åˆ°çš„å­—ç¬¦ä¸² 
+void Process1Logic(FILE *f,FILE *resP,FILE *resS);
+void GainRecord(long long time,FILE *resP,FILE *resS);
+void GainRecord_IP(long long pretime,FILE *resf);
 void Process2Logic(FILE *f,FILE *resf);
-void ProcessPortInfo(FILE *f);
 int main()
 {
-	FILE *fp1,*fp2,*resfp;//fp1¶ÔÓ¦ÓÚ´æ´¢¶Ë¿ÚÊÕµ½×ª·¢Êı¾İ°üµÄĞÅÏ¢£¬fp2¶ÔÓ¦Êı¾İ°üÔ´¶Ë¿Ú¡¢Ä¿µÄ¶Ë¿ÚµÄĞÅÏ¢¡£ÒÔÏÂ´úÂëÖĞ±êÊ¶¡°1¡±ºÍ±êÊ¶¡°2¡±´ú±íµÄ¶«Î÷Ò²Èç´Ë 
-	if((fp1=fopen("openflow.txt","r"))==NULL)//packet_inÊÇ´¦ÀíÖ®Ç°µÄÎÄ¼şÃû 
+	FILE *fp1,*fp2,*resp,*ress,*resip;//fp1å¯¹åº”äºå­˜å‚¨ç«¯å£æ”¶åˆ°è½¬å‘æ•°æ®åŒ…çš„ä¿¡æ¯ï¼Œfp2å¯¹åº”æ•°æ®åŒ…æºç«¯å£ã€ç›®çš„ç«¯å£çš„ä¿¡æ¯ã€‚ä»¥ä¸‹ä»£ç ä¸­æ ‡è¯†â€œ1â€å’Œæ ‡è¯†â€œ2â€ä»£è¡¨çš„ä¸œè¥¿ä¹Ÿå¦‚æ­¤ 
+	if((fp1=fopen("ovs_src_normal\\port_stats.txt","r"))==NULL)
 	{
 		printf("The file can not be open!");
-    	exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+    	exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 	} 
-	if((fp2=fopen("mydebug","r"))==NULL)//packet_inÊÇ´¦ÀíÖ®Ç°µÄÎÄ¼şÃû //TODO ÎÄ¼şÃû 
+	if((fp2=fopen("ovs_src_normal\\flow_stats.txt","r"))==NULL)
 	{
 		printf("The file can not be open!");
-    	exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+    	exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 	} 
-	if((resfp=fopen("ovs_result/ovs_vector.txt","w"))==NULL)//packet_inÊÇ´¦ÀíÖ®Ç°µÄÎÄ¼şÃû 
+	if((resp=fopen("ovs_result\\ovs_port.txt","w"))==NULL)
 	{
 		printf("The file can not be open!");
-    	exit(1);//½áÊø³ÌĞòµÄÖ´ĞĞ
+    	exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
 	} 
-	while(!feof(fp1)){Process1Logic(fp1);}//¶ÁÎÄ¼ş 
-	while(!feof(fp2)){Process2Logic(fp2,resfp);}//¶ÁÎÄ¼ş 
+	if((ress=fopen("ovs_result\\ovs_switch.txt","w"))==NULL)
+	{
+		printf("The file can not be open!");
+    	exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
+	} 
+	if((resip=fopen("ovs_result\\ovs_ip_info.txt","w"))==NULL)
+	{
+		printf("The file can not be open!");
+    	exit(1);//ç»“æŸç¨‹åºçš„æ‰§è¡Œ
+	} 
+	while(!feof(fp1)){Process1Logic(fp1,resp,ress);}//å¤„ç†port_stat
+	while(!feof(fp2)){Process2Logic(fp2,resip);}//å¤„ç†flow_stat
 	return 0;
 } 
 void Process2Logic(FILE *f,FILE *resf)
 {
-	int i=0,begintime,j,k=0,PktNum=0;
-	double temp1,temp2,PortSrcEntropy=0,IPSrcEntropy=0;
-	bool flag; 
+	IP_info tempi;
+	long long pretime=0,curtime;
 	string temps;
-	SubRecord SR;
-	fprintf(resf,"Timetag,src_ip,dst_ip,src_port,deltaT,packet_total,packet_suc,byte_sum,Hi,CPUi,Si\n");
+	
 	while(!feof(f))
 	{
-		temps=GetString(f); SR.time=StrToInt(temps);
-		temps=GetString(f); SR.src_ip=temps;
-		temps=GetString(f); SR.dst_ip=temps;
-		temps=GetString(f); SR.src_port=(int)StrToInt(temps);
-		temps=GetString(f); SR.dst_port=(int)StrToInt(temps);
-		fscanf(f,"%f %f",&temp1,&temp2);
-		SR.CPUi=temp1+temp2;
-		fscanf(f,"%f %f\n",&temp1,&temp2);
-		//temps=GetString(f); SR.CPUi=(float)StrToInt(temps);
-		Record.push_back(SR);
-	}
-	SR.time=TINF;
-	Record.push_back(SR);
-   	//for(i=0;i<Record.size();i++) cout<<i<<" "<<Record[i].time<<endl;
-	for(i=0,begintime=Record[0].time;i<Record.size();i++)
-	{
-		if(Record[i].time-begintime<delT)
+		GetString(f);temps=GetString(f);curtime=StrToLInt(temps);
+		GetString(f);tempi.switchid=GetString(f);
+		GetString(f);tempi.Src_ip=GetString(f);
+		GetString(f);tempi.Dst_ip=GetString(f);
+		GetString(f);tempi.Inport=GetString(f);
+		GetString(f);tempi.OutPort=GetString(f);
+		GetString(f);tempi.Packet=StrToInt(GetString(f));
+		GetString(f);tempi.Byte=StrToInt(GetString(f));
+		if(curtime-pretime>1000||feof(f))
 		{
-			PktNum++;
-			for(j=0,flag=false;j<ResultR.size();j++)
-			{
-				if((ResultR[j].src_ip==Record[i].src_ip)&&(ResultR[j].dst_ip==Record[i].dst_ip))
-				{
-					ResultR[j].packet_total++;flag=true;
-					break;
-				}
-			}
-			if(!flag){SR=Record[i];SR.packet_total=1;ResultR.push_back(SR);}
-			
-			if(IPSrcMap.find(Record[i].src_ip)==IPSrcMap.end()) {
-				IPSrcMap.insert(pair<string,int>(Record[i].src_ip,1));
-			} else IPSrcMap[Record[i].src_ip]++;
-			if(PortSrcMap.find(Record[i].src_port)==PortSrcMap.end()) {
-				PortSrcMap.insert(pair<int,int>(Record[i].src_port,1));
-			} else PortSrcMap[Record[i].src_port]++;
+			GainRecord_IP(pretime,resf);
+			pretime=curtime;
 		}
-		else//Ò»¸öÊ±¼ä¼ä¸ô½áÊø //ìØÖµ¼ÆËã£¬Èç¹û·ÖÄ¸Îª0£¬Ôò²»½øĞĞ³ı·¨£¬½á¹ûÖ±½ÓÎª0 
-		{
-			cout<<PktNum<<" ";
-			begintime+=delT;
-			if(i!=Record.size()-1)i--;
-			for(Iter=IPSrcMap.begin(); Iter!=IPSrcMap.end(); Iter++)IPSrcEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
-			for(IterInt=PortSrcMap.begin(); IterInt!=PortSrcMap.end(); IterInt++) PortSrcEntropy+=((double)IterInt->second/PktNum)*log((double)IterInt->second/PktNum);
-			//cout<<IPSrcEntropy<<" "<<PortSrcEntropy<<endl;
-			for(int j=0;j<ResultR.size();j++)
-			{
-				if(PortSrcEntropy!=0)fprintf(resf,"%d-%d,%s,%s,%d,%d,%d,,,%.5f,%f,\n",begintime-delT,begintime,ResultR[j].src_ip.c_str(),ResultR[j].dst_ip.c_str(),ResultR[j].src_port,delT,ResultR[j].packet_total,IPSrcEntropy/PortSrcEntropy,ResultR[j].CPUi);
-				else fprintf(resf,"%d-%d,%s,%s,%d,%d,%d,,,0.00000,%f,\n",begintime-delT,begintime,ResultR[j].src_ip.c_str(),ResultR[j].dst_ip.c_str(),ResultR[j].src_port,delT,ResultR[j].packet_total,ResultR[j].CPUi);//cout<<"time="<<ResultR[j].time<<"  "<<ResultR[j].src_ip<<"  "<<ResultR[j].dst_ip<<"  "<<ResultR[j].packet_total<<"  "<<ResultR[j].CPUi<<endl;
-			}
-			PktNum=0;
-			PortSrcMap.clear();
-			IPSrcMap.clear();
-			IPSrcEntropy=0;
-			PortSrcEntropy=0;
-			ResultR.clear(); 
-		}
+		CurIP.push_back(tempi);
 	}
 }
-void Process1Logic(FILE *f)
+
+void Process1Logic(FILE *f,FILE *resP,FILE *resS)
 {
-	string TagS;
+	Port tempP;
+	long long pretime=0,curtime;
+	string temps;
 	while(!feof(f))
 	{
-		TagS=GetString(f);
-		if(TagS=="prots_information")
+		GetString(f);temps=GetString(f);curtime=StrToLInt(temps);
+		GetString(f);tempP.switchid=GetString(f);
+		GetString(f);tempP.portid=GetString(f);
+		GetString(f);tempP.PacketReceivedAll=StrToInt(GetString(f));
+		GetString(f);tempP.PacketReceivedSuccess=StrToInt(GetString(f));
+		GetString(f);tempP.PacketsTransmittedAll=StrToInt(GetString(f));
+		GetString(f);tempP.PacketTransmittedSuccess=StrToInt(GetString(f));
+		GetString(f);tempP.ByteReceivedAll=StrToInt(GetString(f));
+		GetString(f);tempP.ByteTransmittedAll=StrToInt(GetString(f));
+		if(curtime-pretime>1000||feof(f))
 		{
-		//	TagS=ProcessPortInfo(f);
+			GainRecord(pretime,resP,resS);
+			pretime=curtime;
 		}
-		else if(TagS=="table_information")
+		Cur.push_back(tempP);
+	}
+}
+bool Judge(IP_info a,IP_info b)
+{
+	if(a.switchid==b.switchid&&a.Src_ip==b.Src_ip&&a.Dst_ip==b.Dst_ip&&a.Inport==b.Inport&&a.OutPort==b.OutPort) return true;
+	else return false;
+}
+void GainRecord_IP(long long pretime,FILE *resf)
+{
+	int i,j,k,PktNum=0;
+	double SipE=0,DipE=0;
+	bool flag;
+	map<string,int> SipM,DipM;
+	map<string,int>::iterator Iter;
+	vector<IP_info> tempV;
+	IP_info tempi;
+	for(i=0;i<CurIP.size();i++)
+	{
+		flag=false;
+		for(j=0;j<PreIP.size();j++)
 		{
-			//Todo//ProcessTableInfo(f);
+			if(Judge(PreIP[j],CurIP[i]))
+			{
+				flag=true;
+				break;
+			}
 		}
-		else if(TagS=="flow_entries_information")
+		if(flag)
 		{
-			//Todo//ProcessFlowInfo(f);
+			tempi=CurIP[i];
+			tempi.Packet-=PreIP[j].Packet;
+			tempi.Byte-=PreIP[j].Byte;
+			PreIP[j]=CurIP[i];
+		}
+		else
+		{
+			tempi=CurIP[i];
+			PreIP.push_back(tempi);
+		}
+		PktNum+=tempi.Packet;
+		if(SipM.find(tempi.Src_ip)==SipM.end()) {SipM.insert(pair<string,int>(tempi.Src_ip,tempi.Packet));} else SipM[tempi.Src_ip]+=tempi.Packet;
+		if(DipM.find(tempi.Dst_ip)==DipM.end()) {DipM.insert(pair<string,int>(tempi.Dst_ip,tempi.Packet));} else DipM[tempi.Dst_ip]+=tempi.Packet;
+		tempV.push_back(tempi);
+	}
+	for(Iter=SipM.begin();Iter!=SipM.end();Iter++) if(Iter->second!=0) SipE+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
+	for(Iter=DipM.begin();Iter!=DipM.end();Iter++) if(Iter->second!=0) DipE+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
+	for(k=0;k<tempV.size();k++)
+	//TODO è€ƒè™‘å½“æŸä¸ªæ•°æ®åŒ…æ•°é‡ä¸º0æ—¶ä¸å†è¾“å‡º 
+	fprintf(resf,"%lld,%s,%s,%s,%s,%s,%.5f,%.5f,%d,%d\n",pretime,tempV[k].switchid.c_str(),tempV[k].Src_ip.c_str(),tempV[k].Dst_ip.c_str(),tempV[k].Inport.c_str(),tempV[k].OutPort.c_str(),SipE,DipE,tempV[k].Packet,tempV[k].Byte);
+	CurIP.clear();
+}
+void GainRecord(long long time,FILE *resP,FILE *resS)//time æ˜¯ä¸ºäº†ç»™æ¯ä¸€æ¡è®°å½•åŠ ä¸€ä¸ªæ—¶é—´æˆ³ 
+{
+	int i,j,k;
+	vector<Port> Switch;
+	Port tempP;
+	bool flag=false,flag1=false;
+	for(i=0;i<Cur.size();i++)
+	{
+		flag=false;flag1=false;
+		for(j=0;j<Pre.size();j++)
+		{
+			if(Pre[j].portid==Cur[i].portid)
+			{
+				flag=true;
+				break;
+			}
+		} 
+		for(k=0;k<Switch.size();k++)
+		{
+			if(Switch[k].switchid==Cur[i].switchid)
+			{
+				flag1=true;
+				break;
+			}
+		}
+		if(flag)
+		{
+			tempP.switchid=Cur[i].switchid;
+			tempP.PacketReceivedAll=Cur[i].PacketReceivedAll-Pre[j].PacketReceivedAll;
+			tempP.PacketReceivedSuccess=Cur[i].PacketReceivedSuccess-Pre[j].PacketReceivedSuccess;
+			tempP.PacketsTransmittedAll=Cur[i].PacketsTransmittedAll-Pre[j].PacketsTransmittedAll;
+			tempP.PacketTransmittedSuccess=Cur[i].PacketTransmittedSuccess-Pre[j].PacketTransmittedSuccess;
+			tempP.ByteReceivedAll=Cur[i].ByteReceivedAll-Pre[j].ByteReceivedAll;
+			tempP.ByteTransmittedAll=Cur[i].ByteTransmittedAll-Pre[j].ByteTransmittedAll;
+			fprintf(resP,"%lld,%s,%d,%d,%d,%d,%d,%d\n",time,Cur[i].portid.c_str(),tempP.PacketReceivedAll,tempP.PacketReceivedSuccess,tempP.PacketsTransmittedAll,tempP.PacketTransmittedSuccess,tempP.ByteReceivedAll,tempP.ByteTransmittedAll);
+			Pre[j]=Cur[i];
+		}
+		else
+		{
+			tempP.switchid=Cur[i].switchid;
+			tempP.PacketReceivedAll=Cur[i].PacketReceivedAll;
+			tempP.PacketReceivedSuccess=Cur[i].PacketReceivedSuccess;
+			tempP.PacketsTransmittedAll=Cur[i].PacketsTransmittedAll;
+			tempP.PacketTransmittedSuccess=Cur[i].PacketTransmittedSuccess;
+			tempP.ByteReceivedAll=Cur[i].ByteReceivedAll;
+			tempP.ByteTransmittedAll=Cur[i].ByteTransmittedAll;
+			fprintf(resP,"%lld,%s,%d,%d,%d,%d,%d,%d\n",time,Cur[i].portid.c_str(),Cur[i].PacketReceivedAll,Cur[i].PacketReceivedSuccess,Cur[i].PacketsTransmittedAll,Cur[i].PacketTransmittedSuccess,Cur[i].ByteReceivedAll,Cur[i].ByteTransmittedAll);
+			Pre.push_back(Cur[i]);
+		}
+		if(flag1)
+		{
+			Switch[k].PacketReceivedAll+=tempP.PacketReceivedAll;
+			Switch[k].PacketReceivedSuccess+=tempP.PacketReceivedSuccess;
+			Switch[k].PacketsTransmittedAll+=tempP.PacketsTransmittedAll;
+			Switch[k].PacketTransmittedSuccess+=tempP.PacketTransmittedSuccess;
+			Switch[k].ByteReceivedAll+=tempP.ByteReceivedAll;
+			Switch[k].ByteTransmittedAll+=tempP.ByteTransmittedAll;
+		}
+		else
+		{
+			Switch.push_back(tempP);
 		}
 	}
+	for(k=0;k<Switch.size();k++)
+	{
+		//TODO CPUiçš„å€¼ä¹Ÿè¦å†™åˆ°æ–‡ä»¶ä¸­å»ï¼Œæš‚æ—¶ç”¨0ä»£æ›¿ 
+		fprintf(resS,"%lld,%s,%d,%d,%d,%d,%d,%d,1.00\n",time,Switch[k].switchid.c_str(),Switch[k].PacketReceivedAll,Switch[k].PacketReceivedSuccess,Switch[k].PacketsTransmittedAll,Switch[k].PacketTransmittedSuccess,Switch[k].ByteReceivedAll,Switch[k].ByteTransmittedAll);
+	}
+	Cur.clear();
 }
 string GetString(FILE *f)
 {
@@ -148,8 +248,15 @@ string GetString(FILE *f)
 	}
 	return temps;
 }
-long long StrToInt(string s) {
+long long StrToLInt(string s) {
 	long long result=0;
+	for(int i=0; i<s.size(); i++) {
+		result+=(s[i]-'0')*pow(10,s.size()-1-i);
+	}
+	return result;
+}
+int StrToInt(string s) {
+	int result=0;
 	for(int i=0; i<s.size(); i++) {
 		result+=(s[i]-'0')*pow(10,s.size()-1-i);
 	}
