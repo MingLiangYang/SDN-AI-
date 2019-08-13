@@ -9,9 +9,9 @@
 using namespace std;
 #define TINF 9e13
 #define delT 2
-#define filePath1  "D:\\Mysql\\sql脚本文件\\packet_in_src_attack"
-#define filePath  "D:\\Mysql\\sql脚本文件\\packet_in_src_normal"
-#define BEGIN 42
+#define filePath1  "D:\\Mysql\\sql\\packet_in_src_attack"
+#define filePath  "D:\\Mysql\\sql\\packet_in_src_normal"
+#define BEGIN 34  //BEGIN 代表filepath的字符数，用来生成目标文件名 
 struct SubRecord {
 	long long time;
 	string src_ip;
@@ -23,7 +23,7 @@ struct SubRecord {
 int INDEXNUMBER=0; //记录一次处理有多少条攻击记录，方便AI模块读取数据 
 vector<string> files;
 vector<SubRecord> Record,PartRecord;
-map<string,int> IPSrcMap,IPDstMap;//统计每一个ip地址出现的个数，计算熵值时使用
+map<string,int> IPSrcMap,IPDstMap,HIP;//统计每一个ip地址出现的个数，计算熵值时使用
 map<int,int>PortSrcMap,PortDstMap;//统计每一个端口出现的个数，计算熵值时使用
 map<string,int>::iterator Iter;
 map<int,int>::iterator IterInt;
@@ -98,7 +98,7 @@ int main() {
 		exit(1);//结束程序的执行
 	}
 	fputs("time,src_ip,dst_ip,src_port,dst_port,size\n",tempfp);//中间数据文件
-
+	//cout<<files.size()<<endl;
 	for(int i=0; i<files.size(); i++) {
 		PartRecord.clear();
 		if((fp=fopen(files[i].c_str(),"r"))==NULL) {
@@ -111,9 +111,10 @@ int main() {
 		PartRecord.push_back(Tail);
 		FILE *tempf;
 		string temps="packet_in_result\\";
+		//cout<<files[i]<<endl;
 		for(j=BEGIN; j<files[i].size(); j++)temps+=files[i][j];
 		tempf=fopen(temps.c_str(),"w");
-	//	cout<<"1"<<temps<<endl;
+		cout<<"1: "<<temps<<endl;
 		GainRecord(tempf,resfp,PartRecord,0);
 		CreateTable(temps,SQLfp);
 	}
@@ -137,7 +138,7 @@ int main() {
 		string temps="packet_in_result\\";
 		for(j=BEGIN; j<files[i].size(); j++)temps+=files[i][j];
 		tempf=fopen(temps.c_str(),"w");
-	//	cout<<"2"<<temps<<endl;
+		cout<<"2: "<<temps<<endl;
 		GainRecord(tempf,resfp,PartRecord,1);
 		CreateTable(temps,SQLfp);
 	}
@@ -158,7 +159,7 @@ void CreateTable(string temps,FILE *SQLfp) {
 	fprintf(SQLfp,"`PktNum` int(20) NOT NULL,`PktNumRate` double(255, 2) NOT NULL,`AvgLength` double(255, 2) NOT NULL,");
 	fprintf(SQLfp,"`IpEntropy` double(255, 5) NOT NULL,`PortEntropy` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,`Tag` int(255) NOT NULL) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci\n");
 	fprintf(SQLfp,"ROW_FORMAT = Dynamic;SET FOREIGN_KEY_CHECKS = 1;\n");
-	fprintf(SQLfp,"load data infile \"D:\\\\Mysql\\\\sql脚本文件\\\\packet_in_result\\\\%s.txt\" into table %s fields terminated by ',' lines terminated by '\\n' ;",Str.c_str(),Str.c_str());
+	fprintf(SQLfp,"load data infile \"D:\\\\Mysql\\\\sql\\\\packet_in_result\\\\%s.txt\" into table %s fields terminated by ',' lines terminated by '\\n' ;",Str.c_str(),Str.c_str());
 //	temps="D:\\Mysql\\sql脚本文件\\"+temps;
 //	cout<<temps<<endl;
 //	fprintf(SQLfp,"load data infile \"%s\" into table %s fields terminated by ',' lines terminated by '\\n' ;",temps.c_str(),Str.c_str());
@@ -213,7 +214,6 @@ void ProcessOneLine(FILE *f,FILE *tempf) {
 //	Str=GetString(f);//cout<<Str<<endl;
 //	SR.time+=(long long)Process2(Str);
 	SR.time=StrToLong(Str);
-	
 	//Str=GetString(f);
 	//if(Str=="PM"||Str=="pm"||Str=="pM"||Str=="Pm") SR.time+=120000;
 	GetString(f);
@@ -228,7 +228,7 @@ void ProcessOneLine(FILE *f,FILE *tempf) {
 	SR.size=StrToInt(GetString(f));
 	Record.push_back(SR);
 	PartRecord.push_back(SR);
-//	cout<<SR.time<<"  "<<SR.src_ip<<" "<<SR.dst_ip<<" "<<SR.src_port<<" "<<SR.dst_port<<" "<<SR.size<<endl;
+	//cout<<SR.time<<"  "<<SR.src_ip<<" "<<SR.dst_ip<<" "<<SR.src_port<<" "<<SR.dst_port<<" "<<SR.size<<endl;
 	fprintf(tempf,"%lld,%s,%s,%d,%d,%d\n",SR.time,SR.src_ip.c_str(),SR.dst_ip.c_str(),SR.src_port,SR.dst_port,SR.size);
 }
 void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag) {
@@ -237,13 +237,15 @@ void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag) {
 	PortSrcMap.clear();
 	IPDstMap.clear();
 	IPSrcMap.clear();
+	HIP.clear();
 	int i,PktNum=0,PrePktNum=0,index=0;
-	double PktNumRate=0,Avglength=0,IPSrcEntropy=0,IPDstEntropy=0,PortSrcEntropy=0,PortDstEntropy=0;
+	double PktNumRate=0,Avglength=0,IPSrcEntropy=0,IPDstEntropy=0,PortSrcEntropy=0,PortDstEntropy=0,HIPEntropy=0;
 	long long begintime=0,tempT;//cout<<Record.size()<<" ";
 	for(i=0,begintime=Record[0].time,PktNum=0; i<Record.size(); i++) {
 		//	cout<<Record[i].time-begintime;//DateCompute(Record[i].time,begintime)
 //		tempT=Record[i].time-begintime;
 //		if(tempT>40)tempT-=40;
+		//if(Record[i].time==1499255372) cout<<begintime<<endl;
 		if(Record[i].time-begintime<delT) {
 			PktNum++;
 			Avglength+=Record[i].size;
@@ -253,6 +255,10 @@ void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag) {
 			if(IPDstMap.find(Record[i].dst_ip)==IPDstMap.end()) {
 				IPDstMap.insert(pair<string,int>(Record[i].dst_ip,1));
 			} else IPDstMap[Record[i].dst_ip]++;
+//			if(HIP.find(Record[i].src_ip+Record[i].dst_ip)==HIP.end())
+//			{
+//				HIP.insert(pair<string,int>(Record[i].src_ip+Record[i].dst_ip,1));
+//			} else HIP[Record[i].src_ip+Record[i].dst_ip]++;
 			if(PortSrcMap.find(Record[i].src_port)==PortSrcMap.end()) {
 				PortSrcMap.insert(pair<int,int>(Record[i].src_port,1));
 			} else PortSrcMap[Record[i].src_port]++;
@@ -268,6 +274,7 @@ void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag) {
 				else PktNumRate=0;
 				for(Iter=IPSrcMap.begin(); Iter!=IPSrcMap.end(); Iter++)	IPSrcEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
 				for(Iter=IPDstMap.begin(); Iter!=IPDstMap.end(); Iter++)	IPDstEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
+				//for(Iter=HIP.begin(); Iter!=HIP.end(); Iter++)	HIPEntropy+=((double)Iter->second/PktNum)*log((double)Iter->second/PktNum);
 				for(IterInt=PortSrcMap.begin(); IterInt!=PortSrcMap.end(); IterInt++)	PortSrcEntropy+=((double)IterInt->second/PktNum)*log((double)IterInt->second/PktNum);
 				for(IterInt=PortDstMap.begin(); IterInt!=PortDstMap.end(); IterInt++)	PortDstEntropy+=((double)IterInt->second/PktNum)*log((double)IterInt->second/PktNum);
 				fprintf(f,"%lld-%lld,%d,%.2f,%.2f,",begintime,begintime+delT,PktNum,PktNumRate,Avglength);
@@ -295,6 +302,8 @@ void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record,int Tag) {
 			PortSrcMap.clear();
 			IPDstMap.clear();
 			IPSrcMap.clear();
+//			HIP.clear();
+//			HIPEntropy=0; 
 			IPSrcEntropy=0;
 			IPDstEntropy=0;
 			PortSrcEntropy=0;
@@ -306,6 +315,7 @@ void getFiles( string path, vector<string>& files ) {
 	//文件句柄
 	long   hFile   =   0;
 	//文件信息
+	//cout<<endl<<" path:"<<path<<endl;
 	struct _finddata_t fileinfo;
 	string p;
 	if((hFile = _findfirst(p.assign(path).append("\\*").c_str(),&fileinfo)) !=  -1) {
