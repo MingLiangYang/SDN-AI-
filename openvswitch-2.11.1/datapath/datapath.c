@@ -67,6 +67,10 @@
 #include <linux/uaccess.h>
 #include <linux/jiffies.h>
 #include <linux/string.h>
+#include <linux/timer.h> 
+#include <linux/timex.h> 
+#include <linux/rtc.h>
+#include <linux/sched.h>
 
 #include "datapath.h"
 #include "conntrack.h"
@@ -222,7 +226,7 @@ struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no)
 static struct vport *new_vport(const struct vport_parms *parms)
 {
 	struct vport *vport;
-
+	printk("new_vport:running!!!!%s",parms->name);
 	vport = ovs_vport_add(parms);
 	if (!IS_ERR(vport)) {
 		struct datapath *dp = parms->dp;
@@ -247,6 +251,8 @@ void ovs_dp_detach_port(struct vport *p)
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 {
+	int pid=current->pid;
+	pr_info("ovs_dp_process_packet pid:%lu  %s",pid,current->comm);
 	const struct vport *p = OVS_CB(skb)->input_vport;
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
@@ -259,36 +265,30 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 
 
 	//gary inserted the following codes
-	unsigned int targetIp =3232281858;//2
-	unsigned long now_time = jiffies/HZ;
-	__be32 dip=key->ipv4.addr.dst,sip=key->ipv4.addr.src;
-	__be16 src_port=key->tp.src,dst_port=key->tp.dst;
-	if(targetIp==(unsigned int)(ntohl(key->ipv4.addr.dst))){
-		mm_segment_t fs;
-		loff_t pos;
-		pr_info("hello enter\n");
-		pr_info("now_time = %u",now_time);
-		pr_info("target ip = " NIPQUAD_FMT "", NIPQUAD(targetIp));
-		pr_info("sip = " NIPQUAD_FMT "\n", NIPQUAD(sip));
-		pr_info("dip = " NIPQUAD_FMT "", NIPQUAD(dip));
-		pr_info("sport = %u",src_port);
-		pr_info("dport = %u",dst_port);
-		char buff[120];
-		sprintf(buff,"%u\n" NIPQUAD_FMT "\n" NIPQUAD_FMT "\n%u\n%u\n", now_time,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port);
-		fs =get_fs();
-		set_fs(KERNEL_DS);
-		pos =0;
-		vfs_write(fp,buff, strlen(buff), &pos);
-		set_fs(fs);
-
-		获取内存和cpu
-		int ret = -1;
-		char path[] = "/home/gary/mysh.sh";
-		char *argv[] = {path, NULL};
-		char *envp[] = {NULL};
-		ret = call_usermodehelper(path, argv, envp,UMH_WAIT_PROC);
-		printk("ret:%d",ret);
-	}
+	// unsigned int targetIp =3232281858;//2
+	// if(targetIp==(unsigned int)(ntohl(key->ipv4.addr.dst))){
+		__be32 dip=key->ipv4.addr.dst,sip=key->ipv4.addr.src;
+		__be16 src_port=key->tp.src,dst_port=key->tp.dst;
+		struct timeval  txc; 
+		do_gettimeofday(&(txc)); 
+		// mm_segment_t fs;
+		// loff_t pos;
+		// pr_info("hello enter\n");
+		// pr_info("now_time = %lu",txc.tv_sec);
+		// pr_info("target ip = " NIPQUAD_FMT "", NIPQUAD(targetIp));
+		// pr_info("sip = " NIPQUAD_FMT "\n", NIPQUAD(sip));
+		// pr_info("dip = " NIPQUAD_FMT "", NIPQUAD(dip));
+		// pr_info("sport = %u",src_port);
+		// pr_info("dport = %u",dst_port);
+		// char buff[200];
+		// sprintf(buff,"%lu\n" NIPQUAD_FMT "\n" NIPQUAD_FMT "\n%u\n%u\n%s\n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
+		printk("Gary: %lu " NIPQUAD_FMT " " NIPQUAD_FMT " %u %u %s \n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
+		// fs =get_fs();
+		// set_fs(KERNEL_DS);
+		// pos =0;
+		// vfs_write(fp,buff, strlen(buff), &pos);
+		// set_fs(fs);
+	// }
 	//gary'code end
 
 
@@ -1619,6 +1619,8 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	struct ovs_net *ovs_net;
 	int err, i;
 
+	printk("ovs_dp_cmd_new：running");
+
 	err = -EINVAL;
 	if (!a[OVS_DP_ATTR_NAME] || !a[OVS_DP_ATTR_UPCALL_PID])
 		goto err;
@@ -2043,7 +2045,7 @@ static void update_headroom(struct datapath *dp)
 			netdev_set_rx_headroom(vport->dev, max_headroom);
 }
 
-static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
+static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)//为什么要传入skb
 {
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
@@ -2479,7 +2481,8 @@ static int __init dp_init(void)
 	BUILD_BUG_ON(sizeof(struct ovs_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
 
 	pr_info("Open vSwitch switching datapath %s\n", VERSION);
-
+	unsigned long pid=current->pid;
+	pr_info("pid:%lu",pid);
 	ovs_nsh_init();
 	err = action_fifos_init();
 
