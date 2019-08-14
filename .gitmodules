@@ -1,0 +1,6 @@
+[submodule "pyAttacker"]
+	path = pyAttacker
+	url = https://github.com/liuhycn/pyAttacker.git
+[submodule "odl-app"]
+	path = odl-app
+	url = https://github.com/liuhycn/odl-apps.git
