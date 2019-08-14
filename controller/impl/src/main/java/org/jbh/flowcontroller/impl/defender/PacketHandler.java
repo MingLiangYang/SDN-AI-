@@ -62,21 +62,7 @@ public class PacketHandler implements PacketProcessingListener
         //LOG.info("[liuhy] ingressNode " + ingressNode);
 
         //packetSize = payload.length;
-
-        Calendar cal = Calendar.getInstance();
-        int year = cal.get(Calendar.YEAR);
-        int month = cal.get(Calendar.MONTH);
-        int day = cal.get(Calendar.DATE);
-        int hour = cal.get(Calendar.HOUR);
-        int minute = cal.get(Calendar.MINUTE);
-        int second = cal.get(Calendar.SECOND);
-        String div1 = ".";
-        String div2 = ":";
-        //TODO
-        String time = String.format("%04d", year) + div1 + String.format("%02d", month) + div1 + String.format("%02d", day) + "-" + String.format("%02d", hour) + div2 + String.format("%02d", minute) + div2 + String.format("%02d", second);
-
-
-
+        Date date = new Date();
 
         payload = notification.getPayload();
         //LOG.info("[liuhy] enter 3 !!!!!");
@@ -110,27 +96,45 @@ public class PacketHandler implements PacketProcessingListener
             dstPort = PacketParsing.rawPortToInteger(rawDstPort);
 
             if (dstIP.substring(0, 3).equals("224") || dstIP.equals("255.255.255.255")
-                    || srcIP.equals("0.0.0.0") || dstIP.substring(0, 3).equals("225") ){
+                    || srcIP.equals("0.0.0.0") || dstIP.substring(0, 3).equals("225")
+                    || dstIP.substring(dstIP.length() -3,dstIP.length()).equals("255")){
                 return;
             }
 
-            //todo
-            String content = "Time " + time + " src_IP " + srcIP + " dst_IP " + dstIP + " EtherType 0x0" + stringEthType + " srcProt " + srcPort + " dstPort " + dstPort + " size " + String.valueOf(packetSize);
+            //use stringbuilder replay string
+            StringBuilder content_sb = new StringBuilder();
+            //String content = "Time " + time + " src_IP " + srcIP + " dst_IP " + dstIP + " EtherType 0x0" + stringEthType
+              //      + " srcProt " + srcPort + " dstPort " + dstPort + " size " + String.valueOf(packetSize);
+            content_sb
+                    .append("Time ").append(date.getTime())
+                    .append(" src_IP ").append(srcIP)
+                    .append(" dst_IP ").append(dstIP)
+                    .append(" EtherType 0x0").append(stringEthType)
+                    .append(" srcProt ").append(srcPort)
+                    .append(" dstPort ").append(dstPort)
+                    .append(" size ").append(String.valueOf(packetSize));
+
 
             if(!fwMap.containsKey(ingressNode)){
                 LOG.debug("JBH: In defender: new FileWriter");
-                //String path = "/home/zju/" + ingressNode + "_pktin.txt";
-                String path = "D:/" + ingressNode + "_pktin.txt";
+                String path = "/home/zju/" + ingressNode + "_pktin.txt";
+                //String path = "D:/" + ingressNode + "_pktin.txt";
                 fwMap.putIfAbsent(ingressNode,new FileWriter(path));
             }
-            fwMap.get(ingressNode).writeLine(content);
+            fwMap.get(ingressNode).writeLine(content_sb.toString());
 
-            //LOG.info("[liuhy] Received packet from IP {} to IP {}, EtherType=0x{} ", srcIP, dstIP, stringEthType);
+            //LOG.debug("[liuhy] Received packet from IP {} to IP {}, EtherType=0x{} ", srcIP, dstIP, stringEthType);
 
         }
 
         counter = counter + 1;
         LOG.debug("[liuhy] Totally receive {} packets for now ", counter);
+    }
+
+    public void closeFileWriter(){
+        for(FileWriter fw : fwMap.values()){
+            fw.close();
+        }
     }
 
 

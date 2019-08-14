@@ -52,10 +52,10 @@ public class statsProvider {
 
     private Map<String,DateAndTime> nodeTimeMap = new HashMap<>();
 
-    private static String PORT_STATS_PATH = "D:/port_stats.txt";
-    private static String FLOW_STATS_PATH = "D:/flow_stats.txt";
-    //private static String PORT_STATS_PATH = "/home/zju/port_stats.txt";
-    //private static String FLOW_STATS_PATH = "/home/zju/flow_stats.txt";
+    //private static String PORT_STATS_PATH = "D:/port_stats.txt";
+    //private static String FLOW_STATS_PATH = "D:/flow_stats.txt";
+    private static String PORT_STATS_PATH = "/home/zju/port_stats.txt";
+    private static String FLOW_STATS_PATH = "/home/zju/flow_stats.txt";
     private FileWriter portfw;
     private FileWriter flowfw;
 
@@ -135,8 +135,8 @@ public class statsProvider {
         }
         long time = date2.getTime();
 
-        String portStatsContent;
-        String flowStatsContent;
+        StringBuilder port_sb = new StringBuilder();
+        StringBuilder flow_sb = new StringBuilder();
 
         List<NodeConnector> listnc = node.getNodeConnector();
         if(listnc == null){
@@ -151,7 +151,6 @@ public class statsProvider {
         BigInteger bytesTransmitted;
         BigInteger packetsReceiveDrops;
         BigInteger packetsTransmitDrops;
-
         for(NodeConnector nc : listnc){
             ncName = nc.getId().getValue();
             int length = ncName.length();
@@ -174,19 +173,23 @@ public class statsProvider {
             packetsReceiveDrops = fcncStats.getReceiveDrops();
             packetsTransmitDrops = fcncStats.getTransmitDrops();
 
-            portStatsContent
-                    = "Time " + time
-                    + " Switch " + datapath
-                    + " Port " + ncName
-                    + " PacketReceivedAll " + packetsReceived.toString()
-                    + " PacketReceivedSuccess " + packetsReceived.subtract(packetsReceiveDrops).toString()
-                    + " PacketsTransmittedAll " + packetsTransmitted.toString()
-                    + " PacketTransmittedSuccess " + packetsTransmitted.subtract(packetsTransmitDrops).toString()
-                    + " ByteReceivedAll " + bytesReceived.toString()
-                    + " ByteTransmittedAll " + bytesTransmitted.toString();
 
-            LOG.debug("JBH: In for port: writeOfflineFile: {}",portStatsContent);
-            portfw.writeLine(portStatsContent);
+
+            port_sb
+                    .append("Time ").append(time)
+                    .append(" Switch ").append(datapath)
+                    .append(" Port ").append(ncName)
+                    .append(" PacketReceivedAll ").append(packetsReceived.toString())
+                    .append(" PacketReceivedSuccess ").append(packetsReceived.subtract(packetsReceiveDrops).toString())
+                    .append(" PacketsTransmittedAll ").append(packetsTransmitted.toString())
+                    .append(" PacketTransmittedSuccess ").append(packetsTransmitted.subtract(packetsTransmitDrops).toString())
+                    .append(" ByteReceivedAll ").append(bytesReceived.toString())
+                    .append(" ByteTransmittedAll ").append(bytesTransmitted.toString());
+
+            LOG.debug("JBH: In for port: writeOfflineFile: {}",port_sb.toString());
+            portfw.writeLine(port_sb.toString());
+
+            port_sb.delete(0,port_sb.length()); //清空一下stringBuffer
         }
 
         List<Table> listTable = node.getAugmentation(FlowCapableNode.class).getTable();
@@ -242,18 +245,20 @@ public class statsProvider {
                         inport = flow.getMatch().getInPort();
                         outportUri = getOutputUriFromFlow(flow);
 
-                        flowStatsContent
-                                = "Time " + time
-                                + " Switch " + datapath
-                                + " SourceIp " + sourceIpPrefix.substring(0,sourceIpPrefix.length()-3)
-                                + " DestIp " + destIpPrefix.substring(0,destIpPrefix.length()-3)
-                                + " InPort " + ( inport == null ? "xxx" : inport.getValue() )
-                                + " OutPort " + ( outportUri == null ? "xxx" : outportUri.getValue() )
-                                + " PacketCount " + packetCount.getValue().toString()
-                                + " ByteCount " + byteCount.getValue().toString();
+                        flow_sb
+                                .append("Time ").append(time)
+                                .append(" Switch ").append(datapath)
+                                .append(" SourceIp ").append(sourceIpPrefix.substring(0,sourceIpPrefix.length()-3))
+                                .append(" DestIp ").append(destIpPrefix.substring(0,destIpPrefix.length()-3))
+                                .append(" InPort ").append(( inport == null ? "xxx" : inport.getValue() ))
+                                .append(" OutPort ").append(( outportUri == null ? "xxx" : outportUri.getValue() ))
+                                .append(" PacketCount ").append(packetCount.getValue().toString())
+                                .append(" ByteCount ").append(byteCount.getValue().toString());
 
-                        LOG.debug("JBH: In for flow: writeOfflineFile{}",flowStatsContent);
-                        flowfw.writeLine(flowStatsContent);
+                        LOG.debug("JBH: In for flow: writeOfflineFile{}",flow_sb.toString());
+                        flowfw.writeLine(flow_sb.toString());
+
+                        flow_sb.delete(0,flow_sb.length());
                     }
 
                 }
