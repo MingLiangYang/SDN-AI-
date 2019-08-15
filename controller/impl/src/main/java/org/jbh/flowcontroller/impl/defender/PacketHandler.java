@@ -97,7 +97,7 @@ public class PacketHandler implements PacketProcessingListener
 
             if (dstIP.substring(0, 3).equals("224") || dstIP.equals("255.255.255.255")
                     || srcIP.equals("0.0.0.0") || dstIP.substring(0, 3).equals("225")
-                    || dstIP.substring(dstIP.length() -3,dstIP.length()).equals("255")){
+                    || dstIP.substring(dstIP.length() -3).equals("255")){
                 return;
             }
 
@@ -117,8 +117,15 @@ public class PacketHandler implements PacketProcessingListener
 
             if(!fwMap.containsKey(ingressNode)){
                 LOG.debug("JBH: In defender: new FileWriter");
-                String path = "/home/zju/" + ingressNode + "_pktin.txt";
-                //String path = "D:/" + ingressNode + "_pktin.txt";
+
+                String path;
+                //different OS has different path name
+                if(System.getProperty("os.name").substring(0,7).equals("Windows")){
+                    path = "D:/" + ingressNode.substring(9) + "_pktin.txt";
+                }else{
+                    path = "/home/zju/" + ingressNode + "_pktin.txt";
+                }
+
                 fwMap.putIfAbsent(ingressNode,new FileWriter(path));
             }
             fwMap.get(ingressNode).writeLine(content_sb.toString());

@@ -52,15 +52,24 @@ public class statsProvider {
 
     private Map<String,DateAndTime> nodeTimeMap = new HashMap<>();
 
-    //private static String PORT_STATS_PATH = "D:/port_stats.txt";
-    //private static String FLOW_STATS_PATH = "D:/flow_stats.txt";
-    private static String PORT_STATS_PATH = "/home/zju/port_stats.txt";
-    private static String FLOW_STATS_PATH = "/home/zju/flow_stats.txt";
+    private static String PORT_STATS_PATH;
+    private static String FLOW_STATS_PATH;
     private FileWriter portfw;
     private FileWriter flowfw;
 
     public statsProvider(DataBroker dataBroker){
         this.dataBroker = dataBroker;
+
+        //different OS has different path name
+        String osName = System.getProperty("os.name"); //操作系统名称
+        if(osName.substring(0,7).equals("Windows")){
+            PORT_STATS_PATH = "D:/port_stats.txt";
+            FLOW_STATS_PATH = "D:/flow_stats.txt";
+        }else{
+            PORT_STATS_PATH = "/home/zju/port_stats.txt";
+            FLOW_STATS_PATH = "/home/zju/flow_stats.txt";
+        }
+
         portfw = new FileWriter(PORT_STATS_PATH);
         flowfw = new FileWriter(FLOW_STATS_PATH);
     }
