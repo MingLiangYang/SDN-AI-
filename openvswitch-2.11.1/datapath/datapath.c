@@ -226,7 +226,6 @@ struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no)
 static struct vport *new_vport(const struct vport_parms *parms)
 {
 	struct vport *vport;
-	printk("new_vport:running!!!!%s",parms->name);
 	vport = ovs_vport_add(parms);
 	if (!IS_ERR(vport)) {
 		struct datapath *dp = parms->dp;
@@ -282,7 +281,10 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		// pr_info("dport = %u",dst_port);
 		// char buff[200];
 		// sprintf(buff,"%lu\n" NIPQUAD_FMT "\n" NIPQUAD_FMT "\n%u\n%u\n%s\n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
-		printk("Gary: %lu " NIPQUAD_FMT " " NIPQUAD_FMT " %u %u %s \n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
+		int error_printk=printk("Gary: %lu " NIPQUAD_FMT " " NIPQUAD_FMT " %u %u %s \n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
+		if(error_printk<1){
+			printk("printk error");
+		}
 		// fs =get_fs();
 		// set_fs(KERNEL_DS);
 		// pos =0;
@@ -1618,8 +1620,6 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	struct vport *vport;
 	struct ovs_net *ovs_net;
 	int err, i;
-
-	printk("ovs_dp_cmd_new：running");
 
 	err = -EINVAL;
 	if (!a[OVS_DP_ATTR_NAME] || !a[OVS_DP_ATTR_UPCALL_PID])
