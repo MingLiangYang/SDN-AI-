@@ -131,11 +131,12 @@ public class PacketInHandler implements PacketProcessingListener {
                 Ipv4Address sourceIp = Ipv4Address.getDefaultInstance(
                         InetAddress.getByAddress(BitBufferHelper.getBits(data, bitOffset + 96, 32)).getHostAddress());
 
+                LOG.debug("JBH: In onPacketReceived: get a IP Packet, souIP:{}, desIP:{}",sourceIp.getValue(),desIp.getValue());
+
                 NodeConnectorRef ingress = packetReceived.getIngress();
                 NodeConnectorRef destNodeConnector = inventoryReader
                         .getNodeConnector(ingress.getValue().firstIdentifierOf(Node.class), desMac);
 
-                LOG.debug("JBH: In onPacketReceived: get a IP Packet, souIP:{}, desIP:{}",sourceIp.getValue(),desIp.getValue());
                 if (destNodeConnector != null) {
                     sendPacketOut(packetReceived.getPayload(), ingress, destNodeConnector);
                     addBidirectionalMacToMacFlows(souceMac, ingress, desMac, destNodeConnector, sourceIp, desIp);
@@ -165,7 +166,8 @@ public class PacketInHandler implements PacketProcessingListener {
             , MacAddress sourceMac, MacAddress desMac){
         //去掉广播/组播包
         if (ingress == null || desIp.getValue().equals("255.255.255.255") || desIp.getValue().substring(0, 3).equals("224")
-                || desIp.getValue().substring(0, 3).equals("225")) {
+                || desIp.getValue().substring(0, 3).equals("225")
+                || desIp.getValue().substring(desIp.getValue().length() -3).equals("255")) {
             return;
         }
 
@@ -180,7 +182,8 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: No flows added. Source and Destination ports are same.");
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796751454798:1 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
@@ -193,7 +196,8 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":4")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: No flows added. Source and Destination ports are same.");
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796749113023:4 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
@@ -206,7 +210,8 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: No flows added at 8796749338201. Source and Destination ports are same.");
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796749338201:1 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
@@ -219,7 +224,8 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: No flows added at 8796748406413. Source and Destination ports are same.");
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796748406413:1 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
@@ -242,18 +248,28 @@ public class PacketInHandler implements PacketProcessingListener {
         Preconditions.checkNotNull(desIp, "Destination ip address should not be null.");
 
         if (ingress.equals(destNodeConnector)) {
-            LOG.info("JBH: In addBidirectionalMacToMacFlows: No flows added. Source and Destination ports are same.");
+            LOG.info("JBH: In addBidirectionalMacToMacFlows: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                    ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue()
+                    ,sourceIp.getValue(),desIp.getValue(),souceMac.getValue(),desMac.getValue());
             return;
         }
 
         // add destMac-To-sourceMac flow on source port
-        addMacIPToMacIPFlow(desMac, souceMac, desIp, sourceIp, ingress);
+        //addMacIPToMacIPFlow(desMac, souceMac, desIp, sourceIp, ingress);
 
         // add sourceMac-To-destMac flow on destination port
-        addMacIPToMacIPFlow(souceMac, desMac, sourceIp, desIp, destNodeConnector);
+        //addMacIPToMacIPFlow(souceMac, desMac, sourceIp, desIp, destNodeConnector);
+        addMacIPToMacIPFlow(souceMac,desMac,sourceIp,desIp,ingress,destNodeConnector);
+        addMacIPToMacIPFlow(desMac,souceMac,desIp,sourceIp,destNodeConnector,ingress);
     }
 
-    private void addMacIPToMacIPFlow(MacAddress souceMac, MacAddress desMac, Ipv4Address sourceIp, Ipv4Address desIp
+    /**
+     * 下流表：
+     * match: ingress、sourceMac、desMac、sourceIP、desIP
+     * Action：output to egress
+     *
+     */
+    private void addMacIPToMacIPFlow(MacAddress souceMac, MacAddress desMac, Ipv4Address sourceIp, Ipv4Address desIp , NodeConnectorRef ingress
             ,NodeConnectorRef egress){
         // do not add flow if both macs are same.
         if (souceMac != null && desMac.equals(souceMac)) {
@@ -267,19 +283,29 @@ public class PacketInHandler implements PacketProcessingListener {
 
         // get flow table key
         InstanceIdentifier<Node> nodeId = egress.getValue().firstIdentifierOf(Node.class);
+        if(nodeId==null) {
+            LOG.info("JBH: In addMacIPToMacIPFlow: NodeId == null");
+            return;
+        }
         InstanceIdentifier<Table> tableId = getTableInstanceId(nodeId);
         InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
         // build a flow that target given mac id
-        Flow flowBody = createMacIpToMacIpFlow(flowTableId, flowPriority, souceMac, desMac, sourceIp, desIp, egress);
+        Flow flowBody = createMacIpToMacIpFlow(flowTableId, flowPriority, souceMac, desMac, sourceIp, desIp, ingress, egress);
 
         // commit the flow in config data
         writeFlowToConfigData(flowId, flowBody);
 
     }
 
+    /**
+     * create flow：
+     * match：ingress、sourceMac、desMac、sourceIP、desIP
+     * action：output to egress
+     *
+     */
     private Flow createMacIpToMacIpFlow(Short tableId, int priority, MacAddress sourceMac
-            , MacAddress destMac, Ipv4Address sourceIp, Ipv4Address destIp, NodeConnectorRef destPort){
+            , MacAddress destMac, Ipv4Address sourceIp, Ipv4Address destIp, NodeConnectorRef ingress, NodeConnectorRef destPort){
         // start building flow
         FlowBuilder MacIpToMacIp = new FlowBuilder() //
                 .setTableId(tableId) //
@@ -299,7 +325,11 @@ public class PacketInHandler implements PacketProcessingListener {
                 .setIpv4Destination(new Ipv4Prefix(destIp.getValue()+"/32"))
                 .setIpv4Source(new Ipv4Prefix(sourceIp.getValue()+"/32"));
 
-        Match match = new MatchBuilder().setEthernetMatch(ethernetMatchBuilder.build()).setLayer3Match(ipv4MatchBuilder.build()).build();
+        Match match = new MatchBuilder()
+                .setInPort(ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId()) //add inport to match
+                .setEthernetMatch(ethernetMatchBuilder.build())
+                .setLayer3Match(ipv4MatchBuilder.build())
+                .build();
 
         Uri destPortUri = destPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
 
