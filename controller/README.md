@@ -22,7 +22,8 @@
     packetHandler/PacketInHandler：
       收到PacketIn后解析，如果是IP PacketIn，调用inventoryReader.getNodeConnector(ingress.getValue().firstIdentifierOf(Node.class), 
       desMac);inventoryReader使用readTransaction读取DS的这个Node的信息，遍历Node所有端口的记录地址，找到desMac后返回端口。根据端口的值，如果端口
-      存在则sendPacketOut addBidirectionalMacToMacFlows，否则 defaultAction
+      存在则调用sendPacketOut addBidirectionalMacToMacFlows，否则调用defaultAction使用默认转发。sendPacketOut就是调用packetProcessingService的
+      rpc。addBidirectionalMacToMacFlows最终会调用salFlowService.addFlow这个rpc给这个Node下双向流表。
 	
     
 
