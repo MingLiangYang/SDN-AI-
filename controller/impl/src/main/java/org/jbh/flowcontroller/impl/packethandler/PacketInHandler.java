@@ -91,8 +91,8 @@ public class PacketInHandler implements PacketProcessingListener {
 
     private short flowTableId = 0;
     private int flowPriority = 10;
-    private int flowHardTimeout = 600;
-    private int flowIdleTimeout = 300;
+    private int flowHardTimeout = 60;
+    private int flowIdleTimeout = 30;
     private static final String FLOW_ID_PREFIX = "flowTest-";
     private final AtomicLong flowIdInc = new AtomicLong();
     private final AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
@@ -139,7 +139,9 @@ public class PacketInHandler implements PacketProcessingListener {
 
                 if (destNodeConnector != null) {
                     sendPacketOut(packetReceived.getPayload(), ingress, destNodeConnector);
-                    addBidirectionalMacToMacFlows(souceMac, ingress, desMac, destNodeConnector, sourceIp, desIp);
+                    //addBidirectionalMacToMacFlows(souceMac, ingress, desMac, destNodeConnector, sourceIp, desIp);
+                    //下单向流表
+                    addMacIPToMacIPFlow(souceMac,desMac,sourceIp,desIp,ingress,destNodeConnector);
                 }else{
                     LOG.debug("JBH: In onPacketReceived: destNodeConnector is null. Use default port. ");
                     defaultAction(ingress, sourceIp, desIp, packetReceived.getPayload(), souceMac, desMac);
@@ -182,12 +184,14 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796751454798:1 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
                         sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
-            addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
         }else if(datapath.equals("openflow:8796749113023")){
             //如果是交换机2 从port4出去
             NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
@@ -196,12 +200,14 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":4")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796749113023:4 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
                         sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
-            addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
         }else if(datapath.equals("openflow:8796749338201")){
             //如果是交换机01 从port1 出去
             NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
@@ -210,12 +216,14 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796749338201:1 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
                         sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
-            addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
         }else if(datapath.equals("openflow:8796748406413")){
             //如果是交换机13 从port1 出去
             NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
@@ -224,12 +232,14 @@ public class PacketInHandler implements PacketProcessingListener {
                             new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
                     .build());
             if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:openflow:8796748406413:1 sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
                         sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
                 return;
             }
             sendPacketOut(payload, ingress, egress);
-            addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
         }
     }
 
@@ -271,12 +281,26 @@ public class PacketInHandler implements PacketProcessingListener {
      */
     private void addMacIPToMacIPFlow(MacAddress souceMac, MacAddress desMac, Ipv4Address sourceIp, Ipv4Address desIp , NodeConnectorRef ingress
             ,NodeConnectorRef egress){
+        Preconditions.checkNotNull(souceMac, "Source mac address should not be null.");
+        Preconditions.checkNotNull(ingress, "inport should not be null.");
+        Preconditions.checkNotNull(desMac, "Destination mac address should not be null.");
+        Preconditions.checkNotNull(egress, "outport should not be null.");
+        Preconditions.checkNotNull(sourceIp, "Source ip address should not be null.");
+        Preconditions.checkNotNull(desIp, "Destination ip address should not be null.");
+
+        if (ingress.equals(egress)) {
+            LOG.info("JBH: In addMacIPToMacIPFlow: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                    ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue()
+                    ,sourceIp.getValue(),desIp.getValue(),souceMac.getValue(),desMac.getValue());
+            return;
+        }
+
         // do not add flow if both macs are same.
-        if (souceMac != null && desMac.equals(souceMac)) {
+        if (desMac.equals(souceMac)) {
             LOG.info("JBH: In addMacIPToMacIPFlow: No flows added. Source and Destination mac are same.");
             return;
         }
-        if(sourceIp != null && sourceIp.equals(desIp)){
+        if(sourceIp.equals(desIp)){
             LOG.info("JBH: In addMacIPToMacIPFlow: No flows added. Source and Destination ip are same.");
             return;
         }
@@ -295,7 +319,6 @@ public class PacketInHandler implements PacketProcessingListener {
 
         // commit the flow in config data
         writeFlowToConfigData(flowId, flowBody);
-
     }
 
     /**
