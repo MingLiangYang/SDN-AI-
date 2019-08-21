@@ -8,7 +8,7 @@
 #include <sys/klog.h>  
 #include <sys/stat.h>  
 //#define __LOG_BUF_LEN   (1 << CONFIG_LOG_BUF_SHIFT)//在2.6.28内核中为默认1<<17，这才是真正dmesg buffer的大小，网上其他都扯淡。  
-#define __LOG_BUF_LEN   (1 << 17)//在2.6.28内核中为默认1<<17，这才是真正dmesg buffer的大小，网上其他都扯淡。  
+#define __LOG_BUF_LEN   (262144)//在2.6.28内核中为默认1<<17，这才是真正dmesg buffer的大小，网上其他都扯淡。  
 #define __LOG_PATH      "home/gary/my.txt"  
 #define LOG_SLEEP(x)    (sleep(x))  
 #define __LOG_SIZE      10485760//大于10M时删除文件  
@@ -44,8 +44,11 @@ int main(int argc, char *argv[])
             printf("creat file faild !\n");  
             continue;  
         }  
-	printf("running\n");
         ret = klogctl(4,buf,__LOG_BUF_LEN);//获得dmesg信息,该函数需要超级用户权限运行  
+            if(ret>=__LOG_BUF_LEN-1){
+            char *error="too big!!";
+            fwrite(error,strlen(error),1,fp);   
+        }
         if(0 >= ret){  
             perror("klogctl ");  
             fclose(fp);  
