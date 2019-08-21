@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
             continue;  
         }  
         ret = klogctl(4,buf,__LOG_BUF_LEN);//获得dmesg信息,该函数需要超级用户权限运行  
-            if(ret>=__LOG_BUF_LEN-1){
+        if(ret>=__LOG_BUF_LEN-1){
             char *error="too big!!";
             fwrite(error,strlen(error),1,fp);   
         }
