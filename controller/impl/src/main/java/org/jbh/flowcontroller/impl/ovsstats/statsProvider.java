@@ -62,7 +62,7 @@ public class statsProvider {
 
         //different OS has different path name
         String osName = System.getProperty("os.name"); //操作系统名称
-        if(osName.substring(0,7).equals("Windows")){
+        if(osName!=null && !osName.isEmpty() && osName.substring(0,1).equals("W")){
             PORT_STATS_PATH = "D:/port_stats.txt";
             FLOW_STATS_PATH = "D:/flow_stats.txt";
         }else{

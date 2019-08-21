@@ -120,7 +120,8 @@ public class PacketHandler implements PacketProcessingListener
 
                 String path;
                 //different OS has different path name
-                if(System.getProperty("os.name").substring(0,7).equals("Windows")){
+                String osName = System.getProperty("os.name"); //操作系统名称
+                if(osName!=null && !osName.isEmpty() && osName.substring(0,1).equals("W")){
                     path = "D:/" + ingressNode.substring(9) + "_pktin.txt";
                 }else{
                     path = "/home/zju/" + ingressNode + "_pktin.txt";
