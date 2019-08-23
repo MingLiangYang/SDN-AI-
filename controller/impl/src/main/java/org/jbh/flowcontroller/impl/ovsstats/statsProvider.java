@@ -46,7 +46,7 @@ public class statsProvider {
     private DataBroker dataBroker;
 
 
-    private static final long STATS_DELAY_MILL = 10*1000; // 延迟20s启动统计
+    private static final long STATS_DELAY_MILL = 10*1000; // 延迟10s启动统计
     private static final long STATS_INTERVAL_MILL = 3*1000; // 周期3s
     private static final String DATE_AND_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
@@ -232,7 +232,7 @@ public class statsProvider {
                     flowPriority = flow.getPriority();
                     LOG.debug("JBH: In for flow: flowId:{} flowPriority:{}",flowId,flowPriority);
                     //only count macIpToMacIpFlow
-                    if(flowId.substring(0,9).equals("flowTest-") && flowPriority == 10){
+                    if(flowPriority == 10){
                         //only need flow which has ipv4 match
                         if(flow.getMatch().getLayer3Match() instanceof Ipv4Match){
                             ipv4Match = (Ipv4Match) flow.getMatch().getLayer3Match();
@@ -338,7 +338,7 @@ public class statsProvider {
             return true;
         }else {
             if(!nodeTimeMap.get(datapath).getValue().equals(dateAndTime.getValue())) {
-                nodeTimeMap.putIfAbsent(datapath,dateAndTime);
+                nodeTimeMap.put(datapath,dateAndTime);//修复bug 原来的putIfAbsent没效果
                 return true;
             }
         }

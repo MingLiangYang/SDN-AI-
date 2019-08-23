@@ -84,10 +84,45 @@ public class PacketParsing
      */
     private static final int DST_PORT_END_POSITION = 38;
 
+    /**
+     * start position of srcIp from arp
+     */
+    private static final int SRC_IP_ARP_START_POSITION = 28;
+
+    /**
+     * end position of srcIP from arp
+     */
+    private static final int SRC_IP_ARP_END_POSITION = 32;
+
+    /**
+     * start position of dstIP from arp
+     */
+    private static final int DST_IP_ARP_START_POSITION = 38;
+
+    /**
+     * end position of dstIP from arp
+     */
+    private static final int DST_IP_ARP_END_POSITION = 42;
+
     private PacketParsing()
     {
         //prohibit to instantiate this class
     }
+
+    /**
+     * @return src ip from arp
+     */
+    public static byte[] extractSrcIpFromARP(final byte[] payload) {
+        return Arrays.copyOfRange(payload, SRC_IP_ARP_START_POSITION, SRC_IP_ARP_END_POSITION);
+    }
+
+    /**
+     * @return dst ip from arp
+     */
+    public static byte[] extractDstIpFromARP(final byte[] payload) {
+        return Arrays.copyOfRange(payload, DST_IP_ARP_START_POSITION, DST_IP_ARP_END_POSITION);
+    }
+
     public static byte[] extractDstMac(final byte[] payload) {
         return Arrays.copyOfRange(payload, DST_MAC_START_POSITION, DST_MAC_END_POSITION);
     }

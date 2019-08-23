@@ -75,10 +75,12 @@ public class PacketHandler implements PacketProcessingListener
         rawEthType = PacketParsing.extractEtherType(payload);
         stringEthType = PacketParsing.rawEthTypeToString(rawEthType);
 
-        if (dstMac.equals("FF:FF:FF:FF:FF:FF") && stringEthType.equals("806"))
+        if (stringEthType.equals("806"))
         {
-            LOG.info("[liuhy] This is an ARP packet ");
-            LOG.info("[liuhy] Received packet from MAC {} to MAC {}, EtherType=0x{} ", srcMac, dstMac, stringEthType);
+            byte[] srcIPFromARP = PacketParsing.extractSrcIpFromARP(payload);
+            byte[] dstIPFromARP = PacketParsing.extractDstIpFromARP(payload);
+            LOG.info("[liuhy] Received ARP from MAC {} to MAC {}, ingress:{}, IP {} to IP {} ", srcMac, dstMac, ingressConnector
+                    ,PacketParsing.rawIPToString(srcIPFromARP),PacketParsing.rawIPToString(dstIPFromARP));
         }
         else if (stringEthType.equals("800"))
         {
@@ -136,7 +138,7 @@ public class PacketHandler implements PacketProcessingListener
         }
 
         counter = counter + 1;
-        LOG.debug("[liuhy] Totally receive {} packets for now ", counter);
+        LOG.debug("[liuhy] Totally receive {} packets for now, EthType:{} ", counter, stringEthType);
     }
 
     public void closeFileWriter(){
