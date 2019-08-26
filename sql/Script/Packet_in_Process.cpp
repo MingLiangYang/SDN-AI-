@@ -11,7 +11,7 @@ using namespace std;
 #define TINF 9e13
 #define delT 2
 #define filePathT  "D:\\Mysql\\sql\\ovs_src_normal\\time.txt"
-#define filePath  "D:\\Mysql\\sql\\packet_in_src_normal"
+#define filePath  "D:\\Mysql\\sql\\packet_in_source"
 #define BEGIN 34  //BEGIN 代表filepath的字符数，用来生成目标文件名 
 struct SubRecord {
 	long long time;
