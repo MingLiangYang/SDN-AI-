@@ -454,6 +454,7 @@ static void pad_packet(struct datapath *dp, struct sk_buff *skb)
 	}
 }
 
+int upcall_nummber=0;
 static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 				  const struct sw_flow_key *key,
 				  const struct dp_upcall_info *upcall_info,
@@ -580,6 +581,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 
 	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
 
+	upcall_nummber++;//gary code
 	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
 	user_skb = NULL;
 out:
