@@ -27,7 +27,6 @@
  ((unsigned char *)&addr)[2], \
  ((unsigned char *)&addr)[3]
 
- struct file *fp;
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -251,7 +250,6 @@ void ovs_dp_detach_port(struct vport *p)
 void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 {
 	int pid=current->pid;
-	pr_info("ovs_dp_process_packet pid:%lu  %s",pid,current->comm);
 	const struct vport *p = OVS_CB(skb)->input_vport;
 	struct datapath *dp = p->dp;
 	struct sw_flow *flow;
@@ -2488,14 +2486,6 @@ static int __init dp_init(void)
 	ovs_nsh_init();
 	err = action_fifos_init();
 
-	//gary'code
-	fp =filp_open("/home/gary/mydebug", O_CREAT |O_RDWR| O_APPEND , 0677);
-	pr_info("successful!!");
-	if (IS_ERR(fp)){
-		printk("create file error\n");
-		return -1;
-	}
-
 	if (err)
 		goto error;
 
@@ -2556,7 +2546,6 @@ error:
 
 static void dp_cleanup(void)
 {
-	filp_close(fp,NULL);
 	dp_unregister_genl(ARRAY_SIZE(dp_genl_families));
 	ovs_netdev_exit();
 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
