@@ -72,6 +72,7 @@
 #include <linux/timex.h> 
 #include <linux/rtc.h>
 #include <linux/sched.h>
+#include <asm/atomic.h>
 
 #include "datapath.h"
 #include "conntrack.h"
@@ -84,8 +85,8 @@
 #include "vport-netdev.h"
 
 //gary's codes
-unsigned long upcall_fail=0,upcall_nummber=0;
-spinlock_t     spin_upcall_fail_lock,spin_upcall_nummber_lock;
+atomic_t upcall_fail = ATOMIC_INIT(0);
+atomic_t upcall_nummber = ATOMIC_INIT(0);
 
 unsigned int ovs_net_id __read_mostly;
 
@@ -584,20 +585,16 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 
 	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
 
-	spin_lock(&spin_upcall_nummber_lock);
-	upcall_nummber++;//gary code
-	spin_lock(&spin_upcall_nummber_lock);
+	atomic_inc(&upcall_nummber);//gary code
 	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
 	user_skb = NULL;
 out:
 	if (err){
 		skb_tx_error(skb);
-		spin_lock(&spin_upcall_fail_lock);
-		upcall_fail++;
-		spin_lock(&spin_upcall_fail_lock);
+		atomic_inc(&upcall_fail);
 	}
 
-	printk("upcall:%lu %lu %lu %lu\n",upcall_nummber,len,upcall_fail,ovs_dp_get_net(dp)->genl_sock->sk_write_queue.qlen);//依次输出upcall数量，当前upcall长度，upcall失败的次数，发送队列长度
+	printk("upcall:%lu %lu %lu %lu\n",atomic_read(&upcall_nummber),len,atomic_read(&upcall_fail),ovs_dp_get_net(dp)->genl_sock->sk_write_queue.qlen);//依次输出upcall数量，当前upcall长度，upcall失败的次数，发送队列长度
 
 	kfree_skb(user_skb);
 	kfree_skb(nskb);
@@ -2495,8 +2492,6 @@ static int __init dp_init(void)
 	BUILD_BUG_ON(sizeof(struct ovs_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
 
 	pr_info("Open vSwitch switching datapath %s\n", VERSION);
-	spin_lock_init(&spin_upcall_nummber_lock);
-	spin_lock_init(&spin_upcall_fail_lock);
 	ovs_nsh_init();
 	err = action_fifos_init();
 
