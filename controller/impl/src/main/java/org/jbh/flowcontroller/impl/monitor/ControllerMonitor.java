@@ -46,6 +46,10 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
 
     private Map<String,Long> switchPacketInNumOneSec = new ConcurrentHashMap<>();  //交换机PacketIn速率
     private AtomicLong packetInNumOneSec = new AtomicLong(0);           //PacketIn速率
+    private AtomicLong packetInProTimeSumOneSec = new AtomicLong(0);    //packetIn一秒钟处理总时间
+    private AtomicLong packetInProcessNumOneSec = new AtomicLong(0);    //packetIn一秒钟处理总数量
+    private AtomicLong packetInSendPacOutTimeSumOneSec = new AtomicLong(0);    //sendPacketOut一秒钟总时间
+    private AtomicLong packetInSendPacOutNumOneSec = new AtomicLong(0);    //sendPacketOut一秒钟总数量
     private Long pacRev = 0L;   //记录上一秒的控制器网卡的收发包总数目
     private Long pacSend = 0L;
     private Long byteRev = 0L;
@@ -58,6 +62,23 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
         this.notificationService = notificationService;
     }
 
+    /** 输出每次统计的开始时间 和结束时间**/
+    public void printStatTime(String s){
+        LOG.debug(s);
+    }
+
+    /** 被多线程调用 **/
+    public void collectPacketInProcessTime(long time){
+        packetInProcessNumOneSec.incrementAndGet();
+        packetInProTimeSumOneSec.addAndGet(time);
+    }
+
+    /** 被多线程调用 **/
+    public void collectSendPacketOutTime(long time){
+        packetInSendPacOutNumOneSec.incrementAndGet();
+        packetInSendPacOutTimeSumOneSec.addAndGet(time);
+    }
+
     @Override
     public void onDataTreeChanged(Collection<DataTreeModification<Node>> changes) {
         for (DataTreeModification<Node> change: changes) {
@@ -67,13 +88,13 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
                 case WRITE:
                     before = (rootNode.getDataBefore() == null) ? "null" : rootNode.getDataBefore().getId().getValue();
                     after = (rootNode.getDataAfter() == null) ? "null" : rootNode.getDataAfter().getId().getValue();
-                    LOG.info("JBH: In Monitor: In onDataTreeChange: Write a Switch to DS " +
+                    LOG.info("JBH: In onDataTreeChange: Write a Switch to DS " +
                             "switchBefore:{} switchAfter:{}",before,after);
                     break;
                 case DELETE:
                     before = (rootNode.getDataBefore() == null) ? "null" : rootNode.getDataBefore().getId().getValue();
                     after = (rootNode.getDataAfter() == null) ? "null" : rootNode.getDataAfter().getId().getValue();
-                    LOG.info("JBH: In Monitor: In onDataTreeChange: DELETE a Switch from DS " +
+                    LOG.info("JBH: In onDataTreeChange: DELETE a Switch from DS " +
                             "switchBefore:{} switchAfter:{}",before,after);
                     break;
                 default:
@@ -103,8 +124,37 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
                 }
             }
         }catch (Exception e){
-            LOG.debug("JBH: In Monitor: In onPacketReceived: get a exception:{}",e);
+            LOG.debug("JBH: In onPacketReceived: get a exception:{}",e);
         }
+    }
+
+    /**
+     * 监控过去一秒钟的平均packetIn处理时间  如果没有就是null
+     */
+    private void packetInProcessTimeMonitor(StringBuilder sb){
+        if(sb==null) return;
+        if(packetInProcessNumOneSec.get()==0){ sb.append(" PacProcessTime:").append("null"); }
+        else {
+            //todo : 平均处理时间的单位
+            sb.append(" PacProcessTime:").append(packetInProTimeSumOneSec.get()/packetInProcessNumOneSec.get());
+        }
+
+        packetInProcessNumOneSec.set(0);
+        packetInProTimeSumOneSec.set(0);
+    }
+
+    /**
+     *  监控过去1s发送packetOut所需的时间  好像不涉及链路延时
+     */
+    private void packetOutSendTimeMonitor(StringBuilder sb){
+        if(sb==null) return;
+        if(packetInSendPacOutNumOneSec.get()==0){sb.append(" PacketOutSendTime:").append("null"); }
+        else{
+            sb.append(" PacketOutSendTime:").append(packetInSendPacOutTimeSumOneSec.get()/packetInSendPacOutNumOneSec.get());
+        }
+
+        packetInSendPacOutNumOneSec.set(0);
+        packetInSendPacOutTimeSumOneSec.set(0);
     }
 
     /**
@@ -154,13 +204,12 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
 
             NetInterfaceStat ifstat = sigar.getNetInterfaceStat(name);
             sb
-                    .append(" ").append(IPName)
-                    .append("-pacRev:").append(ifstat.getRxPackets()-pacRev)
-                    .append("-pacSend:").append(ifstat.getTxPackets()-pacSend)
-                    .append("-byteRev:").append(ifstat.getRxBytes()-byteRev)
-                    .append("-byteSend:").append(ifstat.getTxBytes()-byteSend)
-                    .append("-dropPacRev:").append(ifstat.getRxDropped()-dropRev)
-                    .append("-dropPacSend:").append(ifstat.getTxDropped()-dropSend);
+                    .append(" ").append(IPName).append(":IO:pacRev:").append(ifstat.getRxPackets()-pacRev)
+                    .append(" pacSend:").append(ifstat.getTxPackets()-pacSend)
+                    .append(" byteRev:").append(ifstat.getRxBytes()-byteRev)
+                    .append(" byteSend:").append(ifstat.getTxBytes()-byteSend)
+                    .append(" dropPacRev:").append(ifstat.getRxDropped()-dropRev)
+                    .append(" dropPacSend:").append(ifstat.getTxDropped()-dropSend);
             pacRev = ifstat.getRxPackets();
             pacSend = ifstat.getTxPackets();
             byteRev = ifstat.getRxBytes();
@@ -182,21 +231,27 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
                 memoryMonitor(CPUMonitorContent);
                 IOMonitor(CPUMonitorContent);
             } catch(SigarException e){
-                LOG.error("JBH: In Monitor: In TimerTask: Get a exception:{}" ,e);
+                LOG.error("JBH: In TimerTask: Get a exception:{}" ,e);
             }
 
             try{
                 //监控packetIn信息
                 monitorContent
                         .append("JBH: In Monitor:")
+                        .append(" Time(ms):")
+                        .append(new Date().getTime())
                         .append(" PacketInSpeed:").append(packetInNumOneSec.get());
 
                 for(Map.Entry<String, Long> entry : switchPacketInNumOneSec.entrySet()){
                     monitorContent
-                            .append(" ").append(entry.getKey()).append("SPEED:").append(entry.getValue());
+                            .append(" ").append(entry.getKey()).append(":").append(entry.getValue());
                 }
 
                 monitorContent.append(CPUMonitorContent);
+
+                //监控平均packetIn处理时间 sendpacketOut时间
+                packetInProcessTimeMonitor(monitorContent);
+                packetOutSendTimeMonitor(monitorContent);
 
                 //打印控制器监控信息
                 LOG.debug(monitorContent.toString());
@@ -205,7 +260,7 @@ public class ControllerMonitor implements PacketProcessingListener, DataTreeChan
                 switchPacketInNumOneSec.clear();
                 packetInNumOneSec.set(0);
             }catch(Exception e){
-                LOG.error("JBH: In Monitor: In timer: error caught:{}",e);
+                LOG.error("JBH: In timer: error caught:{}",e);
             }
         }
     }

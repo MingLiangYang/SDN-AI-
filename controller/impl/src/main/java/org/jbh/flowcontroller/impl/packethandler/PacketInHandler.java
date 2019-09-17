@@ -7,6 +7,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import org.jbh.flowcontroller.impl.monitor.ControllerMonitor;
 import org.jbh.flowcontroller.impl.packethandler.utils.BitBufferHelper;
 import org.jbh.flowcontroller.impl.packethandler.utils.BufferException;
 import org.jbh.flowcontroller.impl.packethandler.utils.HexEncode;
@@ -89,6 +90,7 @@ public class PacketInHandler implements PacketProcessingListener {
     private SalFlowService salFlowService;
     private PacketProcessingService packetProcessingService;
     private InventoryReader inventoryReader;
+    private ControllerMonitor controllerMonitor;
 
     private ListenerRegistration packetListenerRegistration;
 
@@ -104,12 +106,18 @@ public class PacketInHandler implements PacketProcessingListener {
     private final AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
     final byte[] ETH_TYPE_IPV4 = new byte[] { 0x08, 0x00 };
 
+    //counter
+    private AtomicLong IPv4packetInNum = new AtomicLong(0);
+    private AtomicLong addFlowNum = new AtomicLong(0);
+
     public PacketInHandler(DataBroker dataBroker, NotificationService notificationService,
-                           SalFlowService salFlowService, PacketProcessingService packetProcessingService){
+                           SalFlowService salFlowService, PacketProcessingService packetProcessingService,
+                           ControllerMonitor controllerMonitor){
         this.notificationService = notificationService;
         this.salFlowService = salFlowService;
         this.packetProcessingService = packetProcessingService;
         this.inventoryReader = new InventoryReader(dataBroker);
+        this.controllerMonitor = controllerMonitor;
     }
 
     @Override
@@ -119,7 +127,8 @@ public class PacketInHandler implements PacketProcessingListener {
 
         // IPv4 traffic only
         if (Arrays.equals(ETH_TYPE_IPV4, etherType)) {
-
+            long startTime = System.nanoTime(); //开始时间
+            IPv4packetInNum.incrementAndGet(); //counter
             try{
                 MacAddress desMac =
                         new MacAddress(HexEncode.bytesToHexStringFormat(BitBufferHelper.getBits(data, 0, 48)));
@@ -158,6 +167,8 @@ public class PacketInHandler implements PacketProcessingListener {
                 LOG.error("JBH: In onPacketReceived: Exception:{} during decoding raw packet to ethernet.", e);
             }catch (BufferException e){
                 LOG.error("JBH: In onPacketReceived: Exception:{} during decoding raw packet to ethernet.", e);
+            }finally{
+                controllerMonitor.collectPacketInProcessTime(System.nanoTime() - startTime);
             }
 
 
@@ -227,6 +238,12 @@ public class PacketInHandler implements PacketProcessingListener {
             defaultPacketOutAddFlow(datapath+":1",ingress,sourceIp,desIp,sourceMac,desMac,payload);
         }else if(datapath.equals("openflow:8796748406413")){ //如果是交换机13 从port1 出去
             defaultPacketOutAddFlow(datapath+":1",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796747538242")){
+            defaultPacketOutAddFlow(datapath+":2",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796757561448")){
+            defaultPacketOutAddFlow(datapath+":2",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796754925640")){
+            defaultPacketOutAddFlow(datapath+":4",ingress,sourceIp,desIp,sourceMac,desMac,payload);
         }
     }
 
@@ -329,6 +346,8 @@ public class PacketInHandler implements PacketProcessingListener {
 
         // commit the flow in config data
         writeFlowToConfigData(flowId, flowBody);
+
+        addFlowNum.incrementAndGet(); //counter
     }
 
     /**
@@ -443,6 +462,9 @@ public class PacketInHandler implements PacketProcessingListener {
             return;
         }
 
+        //todo:这种做法 会导致函数不释放之类的吗 因为是异步调用的 startTIme
+        long startTime = System.nanoTime(); //sendPacketOut的初始时间
+
         InstanceIdentifier<Node> egressNodePath = egress.getValue().firstIdentifierOf(Node.class);
         TransmitPacketInputBuilder tb = new TransmitPacketInputBuilder()
                 .setEgress(egress)
@@ -457,11 +479,13 @@ public class PacketInHandler implements PacketProcessingListener {
                     @Override
                     public void onSuccess(RpcResult<Void> result) {
                         LOG.debug("JBH: Send packetOut success");
+                        controllerMonitor.collectSendPacketOutTime(System.nanoTime() - startTime);
                     }
 
                     @Override
                     public void onFailure(Throwable failure) {
-                        LOG.debug("JBH: transmitPacket for {} failed",ingress);
+                        LOG.info("JBH: transmitPacket for {} failed",ingress);
+                        controllerMonitor.collectSendPacketOutTime(System.nanoTime() - startTime);
                     }
                 }, MoreExecutors.directExecutor());
     }
@@ -532,6 +556,9 @@ public class PacketInHandler implements PacketProcessingListener {
      */
     public void close() {
         packetListenerRegistration.close();
+
+        LOG.info("JBH: In counter: IPv4PacketInNum = {}",IPv4packetInNum.get());
+        LOG.info("JBH: In counter: addFlowNum = {}",addFlowNum.get());
     }
 
 }
