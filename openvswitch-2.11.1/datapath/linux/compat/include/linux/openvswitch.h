@@ -202,6 +202,7 @@ enum ovs_packet_attr {
 	OVS_PACKET_ATTR_KEY,         /* Nested OVS_KEY_ATTR_* attributes. */
 	OVS_PACKET_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
 	OVS_PACKET_ATTR_USERDATA,    /* OVS_ACTION_ATTR_USERSPACE arg. */
+	OVS_PACKET_ATTR_JIFFIES,     /*OVS_PACKET_ATTR_JIFFIES gary's code*/
 	OVS_PACKET_ATTR_EGRESS_TUN_KEY,  /* Nested OVS_TUNNEL_KEY_ATTR_*
 					    attributes. */
 	OVS_PACKET_ATTR_UNUSED1,

@@ -23,6 +23,8 @@
 #include <string.h>
 #ifdef HAVE_MLOCKALL
 #include <sys/mman.h>
+#include <syslog.h>
+#include <sys/time.h>
 #endif
 
 #include "bridge.h"
@@ -72,6 +74,7 @@ struct ovs_vswitchd_exit_args {
 int
 main(int argc, char *argv[])
 {
+    unsigned int main_times=0;
     char *unixctl_path = NULL;
     struct unixctl_server *unixctl;
     char *remote;
@@ -113,6 +116,7 @@ main(int argc, char *argv[])
     exiting = false;
     cleanup = false;
     while (!exiting) {
+        main_times++;
         memory_run();
         if (memory_should_report()) {
             struct simap usage;
@@ -137,6 +141,11 @@ main(int argc, char *argv[])
         if (should_service_stop()) {
             exiting = true;
         }
+        if(!(main_times%10)){
+            struct timeval main_time;
+            gettimeofday(&main_time,NULL);
+            syslog(LOG_DEBUG,"main_times: %lld %d",main_time.tv_sec,main_times);
+        }
     }
     bridge_exit(cleanup);
     unixctl_server_destroy(unixctl);
@@ -144,7 +153,6 @@ main(int argc, char *argv[])
     vlog_disable_async();
     ovsrcu_exit();
     dns_resolve_destroy();
-
     return 0;
 }
 

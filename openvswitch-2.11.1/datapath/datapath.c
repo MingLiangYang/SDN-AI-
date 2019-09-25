@@ -73,6 +73,8 @@
 #include <linux/rtc.h>
 #include <linux/sched.h>
 #include <asm/atomic.h>
+#include <linux/netdevice.h>
+
 
 #include "datapath.h"
 #include "conntrack.h"
@@ -87,6 +89,9 @@
 //gary's codes
 atomic_t upcall_fail = ATOMIC_INIT(0);
 atomic_t upcall_nummber = ATOMIC_INIT(0);
+atomic_t hit_kernal_table= ATOMIC_INIT(0);
+atomic_t cmd_set_ex_times= ATOMIC_INIT(0);
+extern atomic_t ovs_execute_actions_times;
 
 unsigned int ovs_net_id __read_mostly;
 
@@ -286,10 +291,6 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		// pr_info("dport = %u",dst_port);
 		// char buff[200];
 		// sprintf(buff,"%lu\n" NIPQUAD_FMT "\n" NIPQUAD_FMT "\n%u\n%u\n%s\n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
-		int error_printk=printk("Gary: %lu " NIPQUAD_FMT " " NIPQUAD_FMT " %u %u %s \n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,current->comm);
-		if(error_printk<1){
-			printk("printk error");
-		}
 		// fs =get_fs();
 		// set_fs(KERNEL_DS);
 		// pos =0;
@@ -301,8 +302,22 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 
 
 	/* Look up flow. */
+	struct timeval start_find,end_find;
+	do_gettimeofday(&start_find);
 	flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
 					 &n_mask_hit);
+	do_gettimeofday(&end_find);
+	if(flow){
+		atomic_inc(&hit_kernal_table);
+	}
+
+	struct net_device_stats stats_gary=p->dev->stats;
+	int error_printk=printk("Gary: %lu " NIPQUAD_FMT " " NIPQUAD_FMT " %u %u %lu %lu %lu %lu %d %lld %lld %d %d\n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,stats_gary.rx_packets,stats_gary.tx_packets,stats_gary.rx_dropped,stats_gary.tx_dropped,atomic_read(&hit_kernal_table),end_find.tv_sec-start_find.tv_sec,end_find.tv_usec-start_find.tv_usec,atomic_read(&cmd_set_ex_times),atomic_read(&ovs_execute_actions_times));
+	//int error_printk=printk("Gary: %lu " NIPQUAD_FMT " " NIPQUAD_FMT " %u %u %d\n", txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,(skb->dev->netdev_ops->ndo_get_stats(skb->dev))->tx_packets);
+	if(error_printk<1){
+		printk("printk error");
+	}
+
 	if (unlikely(!flow)) {
 		struct dp_upcall_info upcall;
 		int error;
@@ -428,7 +443,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
 		+ nla_total_size(ovs_key_attr_size()) /* OVS_PACKET_ATTR_KEY */
-		+ nla_total_size(sizeof(unsigned int)); /* OVS_PACKET_ATTR_LEN */
+		+ nla_total_size(sizeof(unsigned int)) /* OVS_PACKET_ATTR_LEN */
+		+ nla_total_size(sizeof(unsigned int)); /*OVS_PACKET_ATTR_JIFFIES*/
 
 	/* OVS_PACKET_ATTR_USERDATA */
 	if (upcall_info->userdata)
@@ -521,13 +537,17 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 
 	err = ovs_nla_put_key(key, key, OVS_PACKET_ATTR_KEY, false, user_skb);
 	BUG_ON(err);
-
+	struct timeval  txc; 
+	do_gettimeofday(&(txc)); 
 	if (upcall_info->userdata)
 		__nla_put(user_skb, OVS_PACKET_ATTR_USERDATA,
 			  nla_len(upcall_info->userdata),
 			  nla_data(upcall_info->userdata));
-
-
+	if (nla_put_u32(user_skb, OVS_PACKET_ATTR_JIFFIES,
+				txc.tv_sec)) {
+			err = -ENOBUFS;
+			goto out;
+		}
 	if (upcall_info->egress_tun_info) {
 		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_EGRESS_TUN_KEY);
 		err = ovs_nla_put_tunnel_info(user_skb,
@@ -594,7 +614,7 @@ out:
 		atomic_inc(&upcall_fail);
 	}
 
-	printk("upcall:%lu %lu %lu %lu\n",atomic_read(&upcall_nummber),len,atomic_read(&upcall_fail),ovs_dp_get_net(dp)->genl_sock->sk_write_queue.qlen);//依次输出upcall数量，当前upcall长度，upcall失败的次数，发送队列长度
+	printk("upcall:%lu %lu %lu %lu %lu\n",atomic_read(&upcall_nummber),len,atomic_read(&upcall_fail),ovs_dp_get_net(dp)->genl_sock->sk_receive_queue.qlen,ovs_dp_get_net(dp)->genl_sock->sk_receive_queue.qlen);//依次输出upcall数量，当前upcall长度，upcall失败的次数，发送队列长度
 
 	kfree_skb(user_skb);
 	kfree_skb(nskb);
@@ -695,6 +715,7 @@ err:
 
 static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
 	[OVS_PACKET_ATTR_PACKET] = { .len = ETH_HLEN },
+	[OVS_PACKET_ATTR_JIFFIES] = {.type=NLA_U16},
 	[OVS_PACKET_ATTR_KEY] = { .type = NLA_NESTED },
 	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_NESTED },
 	[OVS_PACKET_ATTR_PROBE] = { .type = NLA_FLAG },
@@ -1197,6 +1218,7 @@ error:
 
 static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
 {
+	atomic_inc(&cmd_set_ex_times);
 	struct net *net = sock_net(skb->sk);
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
@@ -2491,7 +2513,7 @@ static int __init dp_init(void)
 
 	BUILD_BUG_ON(sizeof(struct ovs_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
 
-	pr_info("Open vSwitch switching datapath %s\n", VERSION);
+	pr_info("Open vSwitch switching datapath upcall delay%s\n", VERSION);
 	ovs_nsh_init();
 	err = action_fifos_init();
 
