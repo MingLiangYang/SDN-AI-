@@ -10,8 +10,8 @@
 using namespace std;
 #define TINF 9e13
 #define delT 2
-#define filePath1  "D:\\Mysql\\sql\\packet_in_src_attack"
-#define filePath  "D:\\Mysql\\sql\\packet_in_src_normal"
+#define filePathT  "D:\\Mysql\\sql\\ovs_src_normal\\time.txt"
+#define filePath  "D:\\Mysql\\sql\\packet_in_source"
 #define BEGIN 34  //BEGIN 代表filepath的字符数，用来生成目标文件名 
 struct SubRecord {
 	long long time;
@@ -21,14 +21,26 @@ struct SubRecord {
 	int dst_port;
 	int size;
 };
-FILE *gf;
+struct Time//用来计算攻击时间 
+{
+	int year;
+	int month;
+	int day;
+	int hour;
+	int minute;
+	int second; 
+};
+FILE *gf,*Tf;
 vector<long long> AttackTime;
 vector<string> files;
 vector<SubRecord> Record,PartRecord;
+vector<Time> PretreatTime;
 map<string,int> IPSrcMap,IPDstMap,HIP;//统计每一个ip地址出现的个数，计算熵值时使用
 map<int,int>PortSrcMap,PortDstMap;//统计每一个端口出现的个数，计算熵值时使用
 map<string,int>::iterator Iter;
 map<int,int>::iterator IterInt;
+
+bool JudgeAttack(long long time);
 long long ReturnTime(int year,int month,int day,int hour,int minute,int second);
 bool cmp(SubRecord a,SubRecord b){return a.time<b.time;}
 int StrToInt(string s);//把字符串型数据转为整型并返回整型结果
@@ -39,6 +51,7 @@ void GainRecord(FILE *f,FILE *res,vector<SubRecord> Record);//处理向量Record
 void getFiles( string path, vector<string>& files );
 void CreateTable(string temps,FILE *SQLfp);
 void GetTimeAttack();
+void GetTimeRecord();
 int main() {
 	int i=0,j=0,AttackRecord;
 	SubRecord Tail;
@@ -46,13 +59,19 @@ int main() {
 	FILE *fp,*resfp,*tempfp,*SQLfp,*AIfp;
 
 	getFiles(filePath, files);
+	
+	if((Tf=fopen("ovs_source\\time.txt","r"))==NULL) {
+	printf("The file time.txt can not be open!");
+	exit(1);//结束程序的执行
+	}
+	GetTimeRecord();
 	GetTimeAttack();
 	if((resfp=fopen("packet_in_result\\packet_in_vector.txt","w"))==NULL) {
-		printf("The file can not be open!");
+		printf("The file packet_in_vector.txt can not be open!");
 		exit(1);//结束程序的执行
 	}
 	if((tempfp=fopen("packet_in_result\\packet_in_info.txt","w"))==NULL) {
-		printf("The file can not be open!");
+		printf("The file packet_in_info.txt can not be open!");
 		exit(1);//结束程序的执行
 	}
 //	if((gf=fopen("packet_in_result\\packet_in_test.txt","w"))==NULL) {
@@ -63,6 +82,9 @@ int main() {
 		printf("The file can not be open!");
 		exit(1);//结束程序的执行
 	}
+
+	
+	
 	fputs("time,src_ip,dst_ip,src_port,dst_port,size\n",tempfp);//中间数据文件
 	for(int i=0; i<files.size(); i++) {
 		PartRecord.clear();
@@ -89,26 +111,50 @@ int main() {
 }
 void GetTimeAttack()//得到攻击时间段 
 {
-	AttackTime.push_back(ReturnTime(2019,8,15,20,47,0));
-	AttackTime.push_back(ReturnTime(2019,8,15,21,10,0));
 	
-	AttackTime.push_back(ReturnTime(2019,8,15,21,14,0));
-	AttackTime.push_back(ReturnTime(2019,8,15,21,35,0));
+	int t1=65*60,t2=t1+23*60,t3=t2+4*60,t4=t3+21*60,t5=t4+8*60,t6=t5+17*60,t7=t6+600,t8=t7+13*60,t9=t8+229*60,t10=t9+1200;
+	int year=2019,month=8;
+	//起始时间需要从PretreatTime中读取 
+	long long BeginTime=ReturnTime(year,month,PretreatTime[0].day,PretreatTime[0].hour,PretreatTime[0].minute,PretreatTime[0].second);
+	//以下攻击时间是固定的，每次只用修改起始时间即可 
+	AttackTime.push_back(BeginTime+t1);
+	AttackTime.push_back(BeginTime+t2);
 	
-	AttackTime.push_back(ReturnTime(2019,8,15,21,43,0));
-	AttackTime.push_back(ReturnTime(2019,8,15,22,0,0));
+	AttackTime.push_back(BeginTime+t3);
+	AttackTime.push_back(BeginTime+t4);
+
+	AttackTime.push_back(BeginTime+t5);
+	AttackTime.push_back(BeginTime+t6);
 	
-	AttackTime.push_back(ReturnTime(2019,8,15,22,10,0));
-	AttackTime.push_back(ReturnTime(2019,8,15,22,23,0));
+	AttackTime.push_back(BeginTime+t7);
+	AttackTime.push_back(BeginTime+t8);
 	
-	AttackTime.push_back(ReturnTime(2019,8,15,23,21,59));
-	AttackTime.push_back(ReturnTime(2019,8,15,23,38,56));
+	AttackTime.push_back(BeginTime+t9);
+	AttackTime.push_back(BeginTime+t10);
 	
-	AttackTime.push_back(ReturnTime(2019,8,15,23,53,56));
-	AttackTime.push_back(ReturnTime(2019,8,16,4,13,1));
-	
-	AttackTime.push_back(ReturnTime(2019,8,16,4,38,1));
-	AttackTime.push_back(ReturnTime(2019,8,16,4,50,49));
+	//以下攻击时间是随机设定的，每次需要从 PretreatTime中读取 
+	for(int i=1;i<PretreatTime.size();i+=2)
+	{
+		AttackTime.push_back(ReturnTime(year,month,PretreatTime[i].day,PretreatTime[i].hour,PretreatTime[i].minute,PretreatTime[i].second));
+		AttackTime.push_back(ReturnTime(year,month,PretreatTime[i+1].day,PretreatTime[i+1].hour,PretreatTime[i+1].minute,PretreatTime[i+1].second));
+	}
+//	for(int i=0;i<AttackTime.size();i++)cout<<AttackTime[i]<<endl; 
+} 
+void GetTimeRecord()//从文件中读取每次随机设定的攻击时间，要根据time.txt文件的格式修改此函数 
+{
+	string temps;
+	Time tempt;
+	while(!feof(Tf))
+	{	GetString(Tf);
+		GetString(Tf);GetString(Tf);GetString(Tf);GetString(Tf);
+		temps=GetString(Tf);tempt.day=StrToInt(temps);
+		temps=GetString(Tf);tempt.hour=(temps[0]-'0')*10+temps[1]-'0';
+		tempt.minute=(temps[3]-'0')*10+temps[4]-'0';
+		tempt.second=(temps[6]-'0')*10+temps[7]-'0';
+	//	cout<<tempt.day<<" "<<tempt.hour<<" "<<tempt.minute<<" "<<tempt.second<<" "<<endl;
+		GetString(Tf);
+		PretreatTime.push_back(tempt);
+	}
 }
 bool JudgeAttack(long long time)
 {
@@ -124,7 +170,7 @@ void ProcessOneLine(FILE *f,FILE *tempf) {
 	SubRecord SR;
 	GetString(f);
 	Str=GetString(f);
-	SR.time=StrToLong(Str);//现在给的packet_in的单位到了毫秒。所以要除以1000转化为秒 
+	SR.time=StrToLong(Str)/1000;//现在给的packet_in的单位到了毫秒。所以要除以1000转化为秒 
 	GetString(f);
 	SR.src_ip=GetString(f);
 	GetString(f);
