@@ -57,6 +57,7 @@ public class DefenderProvider {
     public void close()
     {
         LOG.info("DefenderProvider Closed");
+        packetHandler.closeFileWriter();
         if( registration != null)
         {
             registration.close();

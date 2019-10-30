@@ -7,6 +7,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import org.jbh.flowcontroller.impl.monitor.ControllerMonitor;
 import org.jbh.flowcontroller.impl.packethandler.utils.BitBufferHelper;
 import org.jbh.flowcontroller.impl.packethandler.utils.BufferException;
 import org.jbh.flowcontroller.impl.packethandler.utils.HexEncode;
@@ -75,6 +76,9 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -86,8 +90,12 @@ public class PacketInHandler implements PacketProcessingListener {
     private SalFlowService salFlowService;
     private PacketProcessingService packetProcessingService;
     private InventoryReader inventoryReader;
+    private ControllerMonitor controllerMonitor;
 
     private ListenerRegistration packetListenerRegistration;
+
+    //本地Mac to port 映射  每个Mac地址记录过后就不再修改
+    private Map<InstanceIdentifier<Node>,Map<MacAddress,NodeConnectorRef>> localMacToPort = new ConcurrentHashMap<>();
 
     private short flowTableId = 0;
     private int flowPriority = 10;
@@ -98,12 +106,18 @@ public class PacketInHandler implements PacketProcessingListener {
     private final AtomicLong flowCookieInc = new AtomicLong(0x2a00000000000000L);
     final byte[] ETH_TYPE_IPV4 = new byte[] { 0x08, 0x00 };
 
+    //counter
+    private AtomicLong IPv4packetInNum = new AtomicLong(0);
+    private AtomicLong addFlowNum = new AtomicLong(0);
+
     public PacketInHandler(DataBroker dataBroker, NotificationService notificationService,
-                           SalFlowService salFlowService, PacketProcessingService packetProcessingService){
+                           SalFlowService salFlowService, PacketProcessingService packetProcessingService,
+                           ControllerMonitor controllerMonitor){
         this.notificationService = notificationService;
         this.salFlowService = salFlowService;
         this.packetProcessingService = packetProcessingService;
         this.inventoryReader = new InventoryReader(dataBroker);
+        this.controllerMonitor = controllerMonitor;
     }
 
     @Override
@@ -113,7 +127,8 @@ public class PacketInHandler implements PacketProcessingListener {
 
         // IPv4 traffic only
         if (Arrays.equals(ETH_TYPE_IPV4, etherType)) {
-
+            long startTime = System.nanoTime(); //开始时间
+            IPv4packetInNum.incrementAndGet(); //counter
             try{
                 MacAddress desMac =
                         new MacAddress(HexEncode.bytesToHexStringFormat(BitBufferHelper.getBits(data, 0, 48)));
@@ -134,8 +149,9 @@ public class PacketInHandler implements PacketProcessingListener {
                 LOG.debug("JBH: In onPacketReceived: get a IP Packet, souIP:{}, desIP:{}",sourceIp.getValue(),desIp.getValue());
 
                 NodeConnectorRef ingress = packetReceived.getIngress();
-                NodeConnectorRef destNodeConnector = inventoryReader
-                        .getNodeConnector(ingress.getValue().firstIdentifierOf(Node.class), desMac);
+                //NodeConnectorRef destNodeConnector = inventoryReader
+                //        .getNodeConnector(ingress.getValue().firstIdentifierOf(Node.class), desMac);
+                NodeConnectorRef destNodeConnector = getDestNodeConnector(ingress,desMac);
 
                 if (destNodeConnector != null) {
                     sendPacketOut(packetReceived.getPayload(), ingress, destNodeConnector);
@@ -151,11 +167,49 @@ public class PacketInHandler implements PacketProcessingListener {
                 LOG.error("JBH: In onPacketReceived: Exception:{} during decoding raw packet to ethernet.", e);
             }catch (BufferException e){
                 LOG.error("JBH: In onPacketReceived: Exception:{} during decoding raw packet to ethernet.", e);
+            }finally{
+                controllerMonitor.collectPacketInProcessTime(System.nanoTime() - startTime);
             }
 
 
         }
 
+    }
+
+
+    /**
+     * 获取desMac对应的出端口
+     * 先查本地 查不到再查数据库
+     */
+    private NodeConnectorRef getDestNodeConnector(NodeConnectorRef ingress, MacAddress desMac){
+        NodeConnectorRef destNodeConnector = null;
+        InstanceIdentifier<Node> nodeInsId = ingress.getValue().firstIdentifierOf(Node.class); //获取交换机Id
+        if (nodeInsId == null || desMac == null) {
+            LOG.info("JBH: In getDestNodeConnector: nodeInsId:{} or desMac:{} may null",nodeInsId,desMac);
+            return null;
+        }
+
+        if(!localMacToPort.containsKey(nodeInsId)) localMacToPort.putIfAbsent(nodeInsId,new HashMap<>()); //如果没有交换机的Key就创建一个
+
+        Map<MacAddress,NodeConnectorRef> macToPortMap = localMacToPort.get(nodeInsId);
+
+        if(macToPortMap.containsKey(desMac)){  //如果有desMac映射
+            destNodeConnector = macToPortMap.get(desMac);
+            LOG.debug("JBH: In getDestNodeConnector: find desMac:{} to port:{}",desMac,destNodeConnector);
+
+        }else{                                 //如果没有desMac映射
+            destNodeConnector = inventoryReader
+                    .getNodeConnector(ingress.getValue().firstIdentifierOf(Node.class), desMac);
+            if (destNodeConnector == null) {
+                LOG.debug("JBH: In getDestNodeConnector: desMac:{}'s destNodeConnector == null",desMac);
+                return null;
+            }
+
+            macToPortMap.putIfAbsent(desMac,destNodeConnector);
+            LOG.debug("JBH: In getDestNodeConnector: get desMac:{} to port:{}",desMac,destNodeConnector);
+        }
+
+        return destNodeConnector;
     }
 
     /**新加默认逻辑:
@@ -164,8 +218,8 @@ public class PacketInHandler implements PacketProcessingListener {
      * Send default PacketOut and addBidrectionalFlow (交换机98从port1出去 交换机23从port4出去) 前提入端口不等于出端口
      *
      */
-    private void defaultAction(NodeConnectorRef ingress, Ipv4Address sourceIp, Ipv4Address desIp, byte[] payload
-            , MacAddress sourceMac, MacAddress desMac){
+    private void defaultAction(NodeConnectorRef ingress, Ipv4Address sourceIp, Ipv4Address desIp, byte[] payload,
+                               MacAddress sourceMac, MacAddress desMac){
         //去掉广播/组播包
         if (ingress == null || desIp.getValue().equals("255.255.255.255") || desIp.getValue().substring(0, 3).equals("224")
                 || desIp.getValue().substring(0, 3).equals("225")
@@ -176,71 +230,43 @@ public class PacketInHandler implements PacketProcessingListener {
         String datapath = ingress.getValue().firstIdentifierOf(Node.class)    //"openflow:123"
                 .firstKeyOf(Node.class, NodeKey.class).getId().getValue();
 
-        if(datapath.equals("openflow:8796751454798")){
-            //如果是交换机1 从port1出去
-            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
-                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
-                    .child(NodeConnector.class,
-                            new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
-                    .build());
-            if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
-                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
-                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
-                return;
-            }
-            sendPacketOut(payload, ingress, egress);
-            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
-            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
-        }else if(datapath.equals("openflow:8796749113023")){
-            //如果是交换机2 从port4出去
-            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
-                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
-                    .child(NodeConnector.class,
-                            new NodeConnectorKey(new NodeConnectorId(datapath+":4")))
-                    .build());
-            if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
-                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
-                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
-                return;
-            }
-            sendPacketOut(payload, ingress, egress);
-            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
-            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
-        }else if(datapath.equals("openflow:8796749338201")){
-            //如果是交换机01 从port1 出去
-            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
-                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
-                    .child(NodeConnector.class,
-                            new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
-                    .build());
-            if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
-                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
-                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
-                return;
-            }
-            sendPacketOut(payload, ingress, egress);
-            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
-            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
-        }else if(datapath.equals("openflow:8796748406413")){
-            //如果是交换机13 从port1 出去
-            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
-                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
-                    .child(NodeConnector.class,
-                            new NodeConnectorKey(new NodeConnectorId(datapath+":1")))
-                    .build());
-            if(egress.equals(ingress)){
-                LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
-                        ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
-                        sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
-                return;
-            }
-            sendPacketOut(payload, ingress, egress);
-            //addBidirectionalMacToMacFlows(sourceMac, ingress, desMac, egress, sourceIp, desIp);
-            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
+        if(datapath.equals("openflow:8796751454798")){ //如果是交换机1 从port1出去
+            defaultPacketOutAddFlow(datapath+":1",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796749113023")){ //如果是交换机2 从port4出去
+            defaultPacketOutAddFlow(datapath+":4",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796749338201")){ //如果是交换机01 从port1 出去
+            defaultPacketOutAddFlow(datapath+":1",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796748406413")){ //如果是交换机13 从port1 出去
+            defaultPacketOutAddFlow(datapath+":1",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796747538242")){
+            defaultPacketOutAddFlow(datapath+":2",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796757561448")){
+            defaultPacketOutAddFlow(datapath+":2",ingress,sourceIp,desIp,sourceMac,desMac,payload);
+        }else if(datapath.equals("openflow:8796754925640")){
+            defaultPacketOutAddFlow(datapath+":4",ingress,sourceIp,desIp,sourceMac,desMac,payload);
         }
+    }
+
+    /**
+     *
+     */
+    private void defaultPacketOutAddFlow(String outportUri, NodeConnectorRef ingress, Ipv4Address sourceIp, Ipv4Address desIp,
+                                         MacAddress sourceMac, MacAddress desMac, byte[] payload){
+        NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
+                .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
+                .child(NodeConnector.class,
+                        new NodeConnectorKey(new NodeConnectorId(outportUri)))
+                .build());
+
+        if(egress.equals(ingress)){
+            LOG.info("JBH: In defaultAction: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                    ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
+                    sourceIp.getValue(),desIp.getValue(),sourceMac.getValue(),desMac.getValue());
+            return;
+        }
+
+        sendPacketOut(payload, ingress, egress);
+        addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
     }
 
     /**
@@ -289,8 +315,9 @@ public class PacketInHandler implements PacketProcessingListener {
         Preconditions.checkNotNull(desIp, "Destination ip address should not be null.");
 
         if (ingress.equals(egress)) {
-            LOG.info("JBH: In addMacIPToMacIPFlow: Source and Destination ports are same. Ingress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
-                    ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue()
+            LOG.info("JBH: In addMacIPToMacIPFlow: Source and Destination ports are same. Ingress:{} egress:{} sourceIP:{} desIP:{} sourceMac:{} desMac:{}",
+                    ingress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue(),
+                    egress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue()
                     ,sourceIp.getValue(),desIp.getValue(),souceMac.getValue(),desMac.getValue());
             return;
         }
@@ -319,6 +346,8 @@ public class PacketInHandler implements PacketProcessingListener {
 
         // commit the flow in config data
         writeFlowToConfigData(flowId, flowBody);
+
+        addFlowNum.incrementAndGet(); //counter
     }
 
     /**
@@ -433,6 +462,9 @@ public class PacketInHandler implements PacketProcessingListener {
             return;
         }
 
+        //todo:这种做法 会导致函数不释放之类的吗 因为是异步调用的 startTIme
+        long startTime = System.nanoTime(); //sendPacketOut的初始时间
+
         InstanceIdentifier<Node> egressNodePath = egress.getValue().firstIdentifierOf(Node.class);
         TransmitPacketInputBuilder tb = new TransmitPacketInputBuilder()
                 .setEgress(egress)
@@ -447,11 +479,13 @@ public class PacketInHandler implements PacketProcessingListener {
                     @Override
                     public void onSuccess(RpcResult<Void> result) {
                         LOG.debug("JBH: Send packetOut success");
+                        controllerMonitor.collectSendPacketOutTime(System.nanoTime() - startTime);
                     }
 
                     @Override
                     public void onFailure(Throwable failure) {
-                        LOG.debug("JBH: transmitPacket for {} failed",ingress);
+                        LOG.info("JBH: transmitPacket for {} failed",ingress);
+                        controllerMonitor.collectSendPacketOutTime(System.nanoTime() - startTime);
                     }
                 }, MoreExecutors.directExecutor());
     }
@@ -522,6 +556,9 @@ public class PacketInHandler implements PacketProcessingListener {
      */
     public void close() {
         packetListenerRegistration.close();
+
+        LOG.info("JBH: In counter: IPv4PacketInNum = {}",IPv4packetInNum.get());
+        LOG.info("JBH: In counter: addFlowNum = {}",addFlowNum.get());
     }
 
 }

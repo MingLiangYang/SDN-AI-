@@ -24,7 +24,6 @@ public class FileWriter
     {
         try {
             out.write(content + "\r\n");
-            out.flush();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -32,6 +31,7 @@ public class FileWriter
 
     public void close(){
         try {
+            out.flush();
             out.close();
         } catch (IOException e) {
             e.printStackTrace();

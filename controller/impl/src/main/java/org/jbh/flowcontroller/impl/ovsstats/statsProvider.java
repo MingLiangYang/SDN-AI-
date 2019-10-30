@@ -4,6 +4,7 @@ package org.jbh.flowcontroller.impl.ovsstats;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.CheckedFuture;
 import org.jbh.flowcontroller.impl.defender.FileWriter;
+import org.jbh.flowcontroller.impl.monitor.ControllerMonitor;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.DataTreeChangeListener;
 import org.opendaylight.controller.md.sal.binding.api.DataTreeModification;
@@ -44,10 +45,12 @@ public class statsProvider {
     private static final Logger LOG = LoggerFactory.getLogger(statsProvider.class);
 
     private DataBroker dataBroker;
+    private ControllerMonitor controllerMonitor;
 
 
-    private static final long STATS_DELAY_MILL = 10*1000; // 延迟20s启动统计
+    private static final long STATS_DELAY_MILL = 10*1000; // 延迟10s启动统计
     private static final long STATS_INTERVAL_MILL = 3*1000; // 周期3s
+    final SimpleDateFormat simpleDateFormat = new SimpleDateFormat(DATE_AND_TIME_FORMAT);
     private static final String DATE_AND_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
     private Map<String,DateAndTime> nodeTimeMap = new HashMap<>();
@@ -57,8 +60,9 @@ public class statsProvider {
     private FileWriter portfw;
     private FileWriter flowfw;
 
-    public statsProvider(DataBroker dataBroker){
+    public statsProvider(DataBroker dataBroker, ControllerMonitor controllerMonitor){
         this.dataBroker = dataBroker;
+        this.controllerMonitor = controllerMonitor;
 
         //different OS has different path name
         String osName = System.getProperty("os.name"); //操作系统名称
@@ -100,7 +104,7 @@ public class statsProvider {
 
                 List<Node> listNode = nodesData.getNode();
                 if(listNode == null || listNode.isEmpty()){
-                    LOG.debug("JBH: In ScheduleStatsTask.run: no node information");
+                    LOG.info("JBH: In ScheduleStatsTask.run: no node information");
                     return;
                 }
                 for(Node node : listNode){
@@ -110,8 +114,19 @@ public class statsProvider {
                                 .getAugmentation(FlowCapableStatisticsGatheringStatus.class)
                                 .getSnapshotGatheringStatusEnd()
                                 .getEnd();
-                        LOG.debug("JBH: In isUpdate: status end is updated, new dateAndTime:{}",dateAndTime.getValue());
+                        DateAndTime startTime = node
+                                .getAugmentation(FlowCapableStatisticsGatheringStatus.class)
+                                .getSnapshotGatheringStatusStart()
+                                .getBegin();
+                        try{
+                            Date endDate = simpleDateFormat.parse(dateAndTime.getValue());
+                            Date startDate = simpleDateFormat.parse(startTime.getValue());
+                            controllerMonitor.printStatTime("JBH: Get statTime: Node:" + datapath + " startTime:" + startDate.getTime() + " endTime:" + endDate.getTime());
+                        }catch(ParseException e){
+                            LOG.error("JBH: In simpleDateFormat.parse(date): ParseException:{}",e);
+                        }
 
+                        LOG.debug("JBH: In isUpdate: status end is updated, new dateAndTime:{}",dateAndTime.getValue());
                         writeOneNodeStatsData(datapath,node,dateAndTime);
                     }
                 }
@@ -130,8 +145,6 @@ public class statsProvider {
      *
      */
     private void writeOneNodeStatsData(String datapath, Node node, DateAndTime dateAndTime){
-
-        final SimpleDateFormat simpleDateFormat = new SimpleDateFormat(DATE_AND_TIME_FORMAT);
         String date = dateAndTime.getValue();
         Date date2 = null;
         try{
@@ -140,6 +153,7 @@ public class statsProvider {
             LOG.error("JBH: In simpleDateFormat.parse(date): ParseException:{}",e);
         }
         if(date2==null){
+            LOG.info("JBH: In writeOneNodeStatsData: date2 is null, dateAndTime:{}",dateAndTime.getValue());
             return;
         }
         long time = date2.getTime();
@@ -149,7 +163,7 @@ public class statsProvider {
 
         List<NodeConnector> listnc = node.getNodeConnector();
         if(listnc == null){
-            LOG.debug("JBH: In ScheduleStatsTask.run: no nodeconnector information");
+            LOG.info("JBH: In ScheduleStatsTask.run: no nodeconnector information");
             return;
         }
         String ncName;
@@ -167,12 +181,12 @@ public class statsProvider {
                 continue;
             }
             if(nc.getAugmentation(FlowCapableNodeConnectorStatisticsData.class)==null){
-                LOG.debug("JBH: In ScheduleStatsTask.run: no FlowCapableNodeConnectorStatisticsData information");
+                LOG.info("JBH: In ScheduleStatsTask.run: no FlowCapableNodeConnectorStatisticsData information");
                 continue;
             }
             fcncStats = nc.getAugmentation(FlowCapableNodeConnectorStatisticsData.class).getFlowCapableNodeConnectorStatistics();
             if(fcncStats == null){
-                LOG.debug("JBH: In ScheduleStatsTask.run: no FlowCapableNodeConnectorStatistics information");
+                LOG.info("JBH: In ScheduleStatsTask.run: no FlowCapableNodeConnectorStatistics information");
                 continue;
             }
             packetsReceived = fcncStats.getPackets().getReceived();
@@ -232,7 +246,7 @@ public class statsProvider {
                     flowPriority = flow.getPriority();
                     LOG.debug("JBH: In for flow: flowId:{} flowPriority:{}",flowId,flowPriority);
                     //only count macIpToMacIpFlow
-                    if(flowId.substring(0,9).equals("flowTest-") && flowPriority == 10){
+                    if(flowPriority == 10){
                         //only need flow which has ipv4 match
                         if(flow.getMatch().getLayer3Match() instanceof Ipv4Match){
                             ipv4Match = (Ipv4Match) flow.getMatch().getLayer3Match();
@@ -322,14 +336,14 @@ public class statsProvider {
                 .getAugmentation(FlowCapableStatisticsGatheringStatus.class)
                 .getSnapshotGatheringStatusEnd();
         if(snapshotGatheringStatusEnd == null){
-            LOG.debug("JBH: In isUpdate: snapshotGatheringStatusEnd is null, stop writeFile");
+            LOG.info("JBH: In isUpdate: Node:{} snapshotGatheringStatusEnd is null, stop writeFile",datapath);
             return false;
         }
 
         boolean isSucceeded = snapshotGatheringStatusEnd.isSucceeded();
         DateAndTime dateAndTime = snapshotGatheringStatusEnd.getEnd();
         if(!isSucceeded || dateAndTime == null){
-            LOG.debug("JBH: In isUpdate: isSucceeded is {}, dateAndTime is {}, stop writeFile",isSucceeded,dateAndTime);
+            LOG.info("JBH: In isUpdate: Node:{} isSucceeded is {}, dateAndTime is {}, stop writeFile",datapath,isSucceeded,dateAndTime);
             return false;
         }
 
@@ -338,11 +352,15 @@ public class statsProvider {
             return true;
         }else {
             if(!nodeTimeMap.get(datapath).getValue().equals(dateAndTime.getValue())) {
-                nodeTimeMap.putIfAbsent(datapath,dateAndTime);
+                nodeTimeMap.put(datapath,dateAndTime);//修复bug 原来的putIfAbsent没效果
                 return true;
+            }else{
+                LOG.info("JBH: In isUpdate: Node:{}, startTime:{}, last dateAndTime:{} = dateAndTime:{}",datapath,
+                        node.getAugmentation(FlowCapableStatisticsGatheringStatus.class).getSnapshotGatheringStatusStart().getBegin().getValue(),
+                        nodeTimeMap.get(datapath).getValue(),dateAndTime.getValue());
+                return false;
             }
         }
-        return false;
     }
 
     /** general read function
