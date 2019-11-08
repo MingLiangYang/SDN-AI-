@@ -49,7 +49,7 @@ public class statsProvider {
 
 
     private static final long STATS_DELAY_MILL = 10*1000; // 延迟10s启动统计
-    private static final long STATS_INTERVAL_MILL = 3*1000; // 周期3s
+    private static final long STATS_INTERVAL_MILL = 3*1000/3; // 查看统计数据库的周期3s/3 缩短了3倍 为了统计数据记录的更加及时
     final SimpleDateFormat simpleDateFormat = new SimpleDateFormat(DATE_AND_TIME_FORMAT);
     private static final String DATE_AND_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
@@ -104,7 +104,7 @@ public class statsProvider {
 
                 List<Node> listNode = nodesData.getNode();
                 if(listNode == null || listNode.isEmpty()){
-                    LOG.info("JBH: In ScheduleStatsTask.run: no node information");
+                    LOG.debug("JBH: In ScheduleStatsTask.run: no node information");
                     return;
                 }
                 for(Node node : listNode){
@@ -355,9 +355,9 @@ public class statsProvider {
                 nodeTimeMap.put(datapath,dateAndTime);//修复bug 原来的putIfAbsent没效果
                 return true;
             }else{
-                LOG.info("JBH: In isUpdate: Node:{}, startTime:{}, last dateAndTime:{} = dateAndTime:{}",datapath,
+                LOG.debug("JBH: In isUpdate: node.endTime = nodeTimeMap.time, can't update. Node:{}, startTime:{}, endTime:{}",datapath,
                         node.getAugmentation(FlowCapableStatisticsGatheringStatus.class).getSnapshotGatheringStatusStart().getBegin().getValue(),
-                        nodeTimeMap.get(datapath).getValue(),dateAndTime.getValue());
+                        nodeTimeMap.get(datapath).getValue());
                 return false;
             }
         }
