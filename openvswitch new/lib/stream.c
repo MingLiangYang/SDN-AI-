@@ -363,6 +363,7 @@ stream_connect(struct stream *stream)
  *
  * The recv function will not block waiting for a packet to arrive.  If no
  * data have been received, it returns -EAGAIN immediately. */
+
 int
 stream_recv(struct stream *stream, void *buffer, size_t n)
 {
@@ -582,6 +583,7 @@ pstream_close(struct pstream *pstream)
  *
  * pstream_accept() will not block waiting for a connection.  If no connection
  * is ready to be accepted, it returns EAGAIN immediately. */
+
 int
 pstream_accept(struct pstream *pstream, struct stream **new_stream)
 {

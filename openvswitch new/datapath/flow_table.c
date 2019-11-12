@@ -55,6 +55,7 @@
 #define MC_HASH_ENTRIES		(1u << MC_HASH_SHIFT)
 #define MC_HASH_SEGS		((sizeof(uint32_t) * 8) / MC_HASH_SHIFT)
 
+atomic_t hit_cache=ATOMIC_INIT(0);
 static struct kmem_cache *flow_cache;
 struct kmem_cache *flow_stats_cache __read_mostly;
 
@@ -642,6 +643,7 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
 
 		e = &entries[index];
 		if (e->skb_hash == skb_hash) {
+			atomic_inc(&hit_cache);
 			flow = flow_lookup(tbl, ti, ma, key, n_mask_hit,
 					   &e->mask_index);
 			if (!flow)

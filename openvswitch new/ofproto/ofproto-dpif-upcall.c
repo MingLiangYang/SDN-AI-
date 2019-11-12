@@ -13,6 +13,9 @@
  * limitations under the License.  */
 
 #include <config.h>
+#include <stdio.h>
+#include <sys/time.h>
+#include <syslog.h>
 #include "ofproto-dpif-upcall.h"
 
 #include <errno.h>
@@ -749,6 +752,8 @@ udpif_get_n_flows(struct udpif *udpif)
 /* The upcall handler thread tries to read a batch of UPCALL_MAX_BATCH
  * upcalls from dpif, processes the batch and installs corresponding flows
  * in dpif. */
+struct timeval time_udpif_upcall_handler={0,0};
+int count_udpif_upcall_handler=0;
 static void *
 udpif_upcall_handler(void *arg)
 {
@@ -763,6 +768,14 @@ udpif_upcall_handler(void *arg)
             latch_wait(&udpif->exit_latch);
         }
         poll_block();
+        __sync_fetch_and_add(&count_udpif_upcall_handler,1);
+        struct timeval time1;
+        gettimeofday(&time1, NULL);
+        if(time1.tv_sec-time_udpif_upcall_handler.tv_sec>=1){
+            openlog("info",LOG_PID,LOG_LOCAL4);
+            syslog(LOG_DEBUG,"udpif_upcall_handler:%llu %lu",time1.tv_sec,count_udpif_upcall_handler);
+            time_udpif_upcall_handler=time1;
+        }
     }
 
     return NULL;
@@ -1195,7 +1208,18 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
 
     upcall->reval_seq = seq_read(udpif->reval_seq);
 
+
+    struct timeval start ,end; //gary code
+    gettimeofday(&start,NULL);
+
     xerr = xlate_actions(&xin, &upcall->xout);
+
+    gettimeofday(&end,NULL);
+    int user_table_time=(int)end.tv_usec-(int)start.tv_usec;
+    user_table_time=1000000*((int)end.tv_sec-(int)start.tv_sec)+user_table_time;
+    openlog("debug",LOG_PID,LOG_LOCAL4);
+    syslog(LOG_DEBUG,"user_table_time:%llu %d",end.tv_sec,user_table_time);
+
 
     /* Translate again and log the ofproto trace for
      * these two error types. */

@@ -31,6 +31,8 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <syslog.h>
+#include <sys/time.h>
 
 #include "bitmap.h"
 #include "dpif-netlink-rtnl.h"
@@ -2455,13 +2457,13 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
         [OVS_PACKET_ATTR_PACKET] = { .type = NL_A_UNSPEC,
                                      .min_len = ETH_HEADER_LEN },
         [OVS_PACKET_ATTR_KEY] = { .type = NL_A_NESTED },
+        [OVS_PACKET_ATTR_JIFFIES] = {.type = NL_A_UNSPEC },
 
         /* OVS_PACKET_CMD_ACTION only. */
         [OVS_PACKET_ATTR_USERDATA] = { .type = NL_A_UNSPEC, .optional = true },
         [OVS_PACKET_ATTR_EGRESS_TUN_KEY] = { .type = NL_A_NESTED, .optional = true },
         [OVS_PACKET_ATTR_ACTIONS] = { .type = NL_A_NESTED, .optional = true },
         [OVS_PACKET_ATTR_MRU] = { .type = NL_A_U16, .optional = true }
-        [OVS_PACKET_ATTR_JIFFIES] = {.type = NL_A_U16}
     };
 
     struct ofpbuf b = ofpbuf_const_initializer(buf->data, buf->size);
@@ -2491,7 +2493,12 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
     upcall->key_len = nl_attr_get_size(a[OVS_PACKET_ATTR_KEY]);
     dpif_flow_hash(&dpif->dpif, upcall->key, upcall->key_len, &upcall->ufid);
     upcall->userdata = a[OVS_PACKET_ATTR_USERDATA];
-    unsigned long=a[OVS_PACKET_ATTR_JIFFIES];
+    struct timeval time1,time2;
+    time1=*(struct timeval*)nl_attr_get(a[OVS_PACKET_ATTR_JIFFIES]);
+    gettimeofday(&time2, NULL);
+    openlog("info",LOG_PID,LOG_LOCAL4);
+    unsigned int used_time=(time2.tv_sec-time1.tv_sec)*1000000+(time2.tv_usec-time1.tv_usec);
+    syslog(LOG_DEBUG,"gary_upcall:%llu %lu",time2.tv_sec,used_time);
     upcall->out_tun_key = a[OVS_PACKET_ATTR_EGRESS_TUN_KEY];
     upcall->actions = a[OVS_PACKET_ATTR_ACTIONS];
     upcall->mru = a[OVS_PACKET_ATTR_MRU];

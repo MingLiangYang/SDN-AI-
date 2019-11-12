@@ -15,6 +15,10 @@
 
 #include <config.h>
 #include <errno.h>
+#include <sys/time.h>
+#include <syslog.h>
+
+
 
 #include "bfd.h"
 #include "bond.h"
@@ -4073,12 +4077,25 @@ ofproto_dpif_get_tables_version(struct ofproto_dpif *ofproto)
  *
  * 'flow' is non-const to allow for temporary modifications during the lookup.
  * Any changes are restored before returning. */
+struct timeval time_last_user_table_count={0,0};
+unsigned int count_user_table=0;
 static struct rule_dpif *
 rule_dpif_lookup_in_table(struct ofproto_dpif *ofproto, ovs_version_t version,
                           uint8_t table_id, struct flow *flow,
                           struct flow_wildcards *wc)
 {
     struct classifier *cls = &ofproto->up.tables[table_id].cls;
+    struct timeval time1;
+    gettimeofday(&time1, NULL);
+    if(time1.tv_sec-time_last_user_table_count.tv_sec>=1){
+        count_user_table=0;
+        for(int i=0;i<ofproto->up.n_tables;i++){
+            count_user_table+=ofproto->up.tables[i].cls.n_rules;
+        }
+        openlog("info",LOG_PID,LOG_LOCAL4);
+        syslog(LOG_DEBUG,"gary_user_table_count:%llu %lu",time1.tv_sec,count_user_table);
+        time_last_user_table_count=time1;
+    }
     return rule_dpif_cast(rule_from_cls_rule(classifier_lookup(cls, version,
                                                                flow, wc)));
 }
@@ -4178,7 +4195,6 @@ rule_dpif_lookup_from_table(struct ofproto_dpif *ofproto,
     BUILD_ASSERT_DECL(N_TABLES == TBL_INTERNAL + 1);
 
     miss_config = OFPUTIL_TABLE_MISS_CONTINUE;
-
     for (next_id = *table_id;
          next_id < ofproto->up.n_tables;
          next_id++, next_id += (next_id == TBL_INTERNAL))
@@ -4237,7 +4253,6 @@ out:
     flow->tp_dst = old_tp_dst;
     /* Restore the old in port. */
     flow->in_port.ofp_port = old_in_port;
-
     return rule;
 }
 

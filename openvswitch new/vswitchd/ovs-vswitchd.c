@@ -18,11 +18,15 @@
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_MLOCKALL
 #include <sys/mman.h>
+#include <syslog.h>
+#include <sys/time.h>
 #endif
 
 #include "bridge.h"
@@ -69,6 +73,24 @@ struct ovs_vswitchd_exit_args {
     bool *cleanup;
 };
 
+extern int count_send;
+extern int count_recv;
+extern int count_udpif_upcall_handler;
+extern unsigned int hit_user_table;
+extern unsigned int count_user_table;
+unsigned int main_times=0;
+void output_statistics(){
+    while(1){
+        struct timeval start;
+        gettimeofday(&start,NULL);
+        openlog("debug",LOG_PID,LOG_LOCAL4);
+        syslog(LOG_DEBUG,"userspace:%llu %d %d %d %u %u %u",start.tv_sec,count_recv,count_send,\
+            count_udpif_upcall_handler,hit_user_table,count_user_table, main_times);
+        usleep(900000);
+    }
+}
+
+struct timeval time_last_main_times={0,0};
 int
 main(int argc, char *argv[])
 {
@@ -90,6 +112,7 @@ main(int argc, char *argv[])
 
     daemonize_start(true);
 
+
     if (want_mlockall) {
 #ifdef HAVE_MLOCKALL
         if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
@@ -110,9 +133,16 @@ main(int argc, char *argv[])
     bridge_init(remote);
     free(remote);
 
+    pthread_t thread1;
+    int ret_thrd1 = pthread_create(&thread1, NULL, (void *)&output_statistics,NULL);
+    if(!ret_thrd1){
+        syslog(LOG_DEBUG,"thread creation fails");
+    }
+
     exiting = false;
     cleanup = false;
     while (!exiting) {
+        main_times++;
         memory_run();
         if (memory_should_report()) {
             struct simap usage;
@@ -137,6 +167,15 @@ main(int argc, char *argv[])
         if (should_service_stop()) {
             exiting = true;
         }
+        //gary code
+        struct timeval main_time;
+        gettimeofday(&main_time,NULL);
+        if(main_time.tv_sec-time_last_main_times.tv_sec>=1){
+            openlog("info",LOG_PID,LOG_LOCAL4);//gary log open
+            syslog(LOG_DEBUG,"main_times:%lld %d",main_time.tv_sec,main_times);
+            time_last_main_times=main_time;
+        }
+        //gary code end
     }
     bridge_exit(cleanup);
     unixctl_server_destroy(unixctl);
@@ -144,7 +183,7 @@ main(int argc, char *argv[])
     vlog_disable_async();
     ovsrcu_exit();
     dns_resolve_destroy();
-
+    closelog();//gary lose log
     return 0;
 }
 

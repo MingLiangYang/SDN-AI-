@@ -15,6 +15,9 @@
  */
 
 #include <config.h>
+#include <stdio.h>
+#include <sys/time.h>
+#include <syslog.h>
 #include <errno.h>
 #include <stdlib.h>
 
@@ -1382,6 +1385,10 @@ ofconn_may_recv(const struct ofconn *ofconn)
     return count < OFCONN_REPLY_MAX;
 }
 
+//gary code
+struct timeval time_last_recv_contro={0,0};
+int count_recv = 0;
+
 static void
 ofconn_run(struct ofconn *ofconn,
            void (*handle_openflow)(struct ofconn *,
@@ -1408,6 +1415,17 @@ ofconn_run(struct ofconn *ofconn,
         if (mgr->fail_open) {
             fail_open_maybe_recover(mgr->fail_open);
         }
+
+        //gary code
+        __sync_fetch_and_add (&count_recv , 1 ) ;
+        struct timeval time1;
+        gettimeofday(&time1, NULL);
+        if(time1.tv_sec-time_last_recv_contro.tv_sec>=1){
+            openlog("info",LOG_PID,LOG_LOCAL4);
+            syslog(LOG_DEBUG,"recv_controller:%llu %lu",time1.tv_sec,count_recv);
+            time_last_recv_contro=time1;
+        }
+        //gary code end
 
         struct ovs_list msgs;
         enum ofperr error = ofpmp_assembler_execute(&ofconn->assembler, of_msg,
@@ -1580,10 +1598,23 @@ ofconn_set_rate_limit(struct ofconn *ofconn, int rate, int burst)
     }
 }
 
+struct timeval time_last_send_contro={0,0};
+int count_send = 0;
 static void
 ofconn_send(const struct ofconn *ofconn, struct ofpbuf *msg,
             struct rconn_packet_counter *counter)
 {
+    //gary code
+    __sync_fetch_and_add (&count_send , 1 ) ;
+    struct timeval time1;
+    gettimeofday(&time1, NULL);
+    if(time1.tv_sec-time_last_send_contro.tv_sec>=1){
+        openlog("info",LOG_PID,LOG_LOCAL4);
+        syslog(LOG_DEBUG,"send_controller:%llu %lu",time1.tv_sec,count_send);
+        time_last_send_contro=time1;
+    }
+    //gary code end
+
     ofpmsg_update_length(msg);
     rconn_send(ofconn->rconn, msg, counter);
 }

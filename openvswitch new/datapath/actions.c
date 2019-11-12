@@ -44,6 +44,8 @@
 #include "vport.h"
 #include "flow_netlink.h"
 
+atomic_t ovs_execute_actions_times = ATOMIC_INIT(0);
+
 static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			      struct sw_flow_key *key,
 			      const struct nlattr *attr, int len);
@@ -1495,6 +1497,8 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			const struct sw_flow_actions *acts,
 			struct sw_flow_key *key)
 {
+	atomic_inc(&ovs_execute_actions_times);
+
 	int err, level;
 
 	level = __this_cpu_inc_return(exec_actions_level);
