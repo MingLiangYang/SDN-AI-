@@ -2457,7 +2457,7 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
         [OVS_PACKET_ATTR_PACKET] = { .type = NL_A_UNSPEC,
                                      .min_len = ETH_HEADER_LEN },
         [OVS_PACKET_ATTR_KEY] = { .type = NL_A_NESTED },
-        [OVS_PACKET_ATTR_JIFFIES] = {.type = NL_A_UNSPEC },
+        [OVS_PACKET_ATTR_JIFFIES] = {.type = NL_A_UNSPEC },//用户态下的
 
         /* OVS_PACKET_CMD_ACTION only. */
         [OVS_PACKET_ATTR_USERDATA] = { .type = NL_A_UNSPEC, .optional = true },
@@ -2493,12 +2493,13 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
     upcall->key_len = nl_attr_get_size(a[OVS_PACKET_ATTR_KEY]);
     dpif_flow_hash(&dpif->dpif, upcall->key, upcall->key_len, &upcall->ufid);
     upcall->userdata = a[OVS_PACKET_ATTR_USERDATA];
+    //参照上面的取法
     struct timeval time1,time2;
-    time1=*(struct timeval*)nl_attr_get(a[OVS_PACKET_ATTR_JIFFIES]);
+    time1=*(struct timeval*)nl_attr_get(a[OVS_PACKET_ATTR_JIFFIES]);//获取在内核态添加的起始时间
     gettimeofday(&time2, NULL);
     openlog("info",LOG_PID,LOG_LOCAL4);
-    unsigned int used_time=(time2.tv_sec-time1.tv_sec)*1000000+(time2.tv_usec-time1.tv_usec);
-    syslog(LOG_DEBUG,"gary_upcall:%llu %lu",time2.tv_sec,used_time);
+    unsigned int used_time=(time2.tv_sec-time1.tv_sec)*1000000+(time2.tv_usec-time1.tv_usec);//根据当前时间计算时延
+    syslog(LOG_DEBUG,"gary_upcall:%llu %lu",time2.tv_sec,used_time);//输出到日志
     upcall->out_tun_key = a[OVS_PACKET_ATTR_EGRESS_TUN_KEY];
     upcall->actions = a[OVS_PACKET_ATTR_ACTIONS];
     upcall->mru = a[OVS_PACKET_ATTR_MRU];

@@ -1497,7 +1497,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			const struct sw_flow_actions *acts,
 			struct sw_flow_key *key)
 {
-	atomic_inc(&ovs_execute_actions_times);
+	atomic_inc(&ovs_execute_actions_times);//原子操作自增
 
 	int err, level;
 

@@ -94,7 +94,6 @@ VLOG_DEFINE_THIS_MODULE(ofproto_dpif_xlate);
 #define MAX_RESUBMITS (MAX_DEPTH * MAX_DEPTH)
 
 int user_table_time;
-
 /* The structure holds an array of IP addresses assigned to a bridge and the
  * number of elements in the array. These data are mutable and are evaluated
  * when ARP or Neighbor Advertisement packets received on a native tunnel
@@ -790,8 +789,6 @@ xlate_report_action_set(const struct xlate_ctx *ctx, const char *verb)
  * restore its previous value.
  *
  * If tracing is not enabled, does nothing. */
-unsigned int hit_user_table=0;
-struct timeval time_hit_user_table={0,0};
 static void
 xlate_report_table(const struct xlate_ctx *ctx, struct rule_dpif *rule,
                    uint8_t table_id)
@@ -799,14 +796,10 @@ xlate_report_table(const struct xlate_ctx *ctx, struct rule_dpif *rule,
     if (OVS_LIKELY(!ctx->xin->trace)) {
         return;
     }
-
     struct ds s = DS_EMPTY_INITIALIZER;
     ds_put_format(&s, "%2d. ", table_id);
     if (rule == ctx->xin->ofproto->miss_rule) {
         ds_put_cstr(&s, "No match, and a \"packet-in\" is called for.");
-        //gary code 
-        __sync_fetch_and_add (&hit_user_table , 1 ) ;
-        //gary code end
     } else if (rule == ctx->xin->ofproto->no_packet_in_rule) {
         ds_put_cstr(&s, "No match.");
     } else if (rule == ctx->xin->ofproto->drop_frags_rule) {
@@ -4316,7 +4309,6 @@ xlate_table_action(struct xlate_ctx *ctx, ofp_port_t in_port, uint8_t table_id,
         if (with_ct_orig) {
             tuple_swap(&ctx->xin->flow, ctx->wc);
         }
-
         if (rule) {
             /* Fill in the cache entry here instead of xlate_recursively
              * to make the reference counting more explicit.  We take a

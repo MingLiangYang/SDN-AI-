@@ -93,6 +93,7 @@ atomic_t hit_kernal_table= ATOMIC_INIT(0);
 atomic_t cmd_set_ex_times= ATOMIC_INIT(0);
 atomic_t cmd_get_ex_times= ATOMIC_INIT(0);
 atomic_t cmd_del_ex_times= ATOMIC_INIT(0);
+atomic_t cmd_fail_times= ATOMIC_INIT(0);
 
 extern atomic_t ovs_execute_actions_times;
 extern atomic_t hit_cache;
@@ -287,17 +288,18 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	struct timeval start_find,end_find;
 	do_gettimeofday(&start_find);
 	flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
-					 &n_mask_hit);
+					 &n_mask_hit);//查询内核态流表函数
 	do_gettimeofday(&end_find);
-	if(flow){
+	if(flow){//如果查找到相应的流表项
 		atomic_inc(&hit_kernal_table);
 	}
 	int used_time=(int)(end_find.tv_usec)-(int)(start_find.tv_usec);
 	used_time=1000000*((int)(end_find.tv_sec)-(int)(start_find.tv_sec))+used_time;
-	int error_printk=printk("Gary:%lu " NIPQUAD_FMT " " NIPQUAD_FMT " %lu %lu %lld %d %lld %ld %ld %ld %ld\n",\
+	int error_printk=printk("Gary:%lu " NIPQUAD_FMT " " NIPQUAD_FMT " %lu %lu %lld %d %lld %ld %ld %ld %ld %ld\n",\
 	 txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,atomic_read(&hit_kernal_table),used_time,\
 	 atomic_read(&cmd_set_ex_times),atomic_read(&cmd_get_ex_times),\
-	 atomic_read(&cmd_del_ex_times),atomic_read(&ovs_execute_actions_times),atomic_read(&hit_cache));
+	 atomic_read(&cmd_del_ex_times),atomic_read(&ovs_execute_actions_times),\
+	 atomic_read(&hit_cache),atomic_read(&cmd_fail_times));
 	if(error_printk<1){
 		printk("printk error");
 	}
@@ -528,7 +530,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 		__nla_put(user_skb, OVS_PACKET_ATTR_USERDATA,
 			  nla_len(upcall_info->userdata),
 			  nla_data(upcall_info->userdata));
-	__nla_put(user_skb,OVS_PACKET_ATTR_JIFFIES,sizeof(txc),&txc);
+	__nla_put(user_skb,OVS_PACKET_ATTR_JIFFIES,sizeof(txc),&txc);//添加数据
 	if (upcall_info->egress_tun_info) {
 		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_EGRESS_TUN_KEY);
 		err = ovs_nla_put_tunnel_info(user_skb,
@@ -586,11 +588,11 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 
 	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
 
-	atomic_inc(&upcall_nummber);//gary code
-	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
+	atomic_inc(&upcall_nummber);//原子操作自增
+	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);//upcall发送函数
 	user_skb = NULL;
 out:
-	if (err){
+	if (err){//如果发送失败
 		skb_tx_error(skb);
 		atomic_inc(&upcall_fail);
 	}
@@ -681,6 +683,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	rcu_read_unlock();
 
 	ovs_flow_free(flow, false);
+	if(err!=0){
+		atomic_inc(&cmd_fail_times);//原子操作自增
+	}
 	return err;
 
 err_unlock:
@@ -695,7 +700,7 @@ err:
 
 static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
 	[OVS_PACKET_ATTR_PACKET] = { .len = ETH_HLEN },
-	[OVS_PACKET_ATTR_JIFFIES] = {.type = NLA_UNSPEC},
+	[OVS_PACKET_ATTR_JIFFIES] = {.type = NLA_UNSPEC},//timeval结构体
 	[OVS_PACKET_ATTR_KEY] = { .type = NLA_NESTED },
 	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_NESTED },
 	[OVS_PACKET_ATTR_PROBE] = { .type = NLA_FLAG },
@@ -1198,7 +1203,7 @@ error:
 
 static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
 {
-	atomic_inc(&cmd_set_ex_times);
+	atomic_inc(&cmd_set_ex_times);//原子操作，自增，统计该函数执行次数
 	struct net *net = sock_net(skb->sk);
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
@@ -1301,7 +1306,7 @@ error:
 
 static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
 {
-	atomic_inc(&cmd_get_ex_times);
+	atomic_inc(&cmd_get_ex_times);//原子操作自增
 	struct nlattr **a = info->attrs;
 	struct ovs_header *ovs_header = info->userhdr;
 	struct net *net = sock_net(skb->sk);

@@ -167,15 +167,6 @@ main(int argc, char *argv[])
         if (should_service_stop()) {
             exiting = true;
         }
-        //gary code
-        struct timeval main_time;
-        gettimeofday(&main_time,NULL);
-        if(main_time.tv_sec-time_last_main_times.tv_sec>=1){
-            openlog("info",LOG_PID,LOG_LOCAL4);//gary log open
-            syslog(LOG_DEBUG,"main_times:%lld %d",main_time.tv_sec,main_times);
-            time_last_main_times=main_time;
-        }
-        //gary code end
     }
     bridge_exit(cleanup);
     unixctl_server_destroy(unixctl);

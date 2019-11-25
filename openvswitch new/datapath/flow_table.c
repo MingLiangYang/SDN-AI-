@@ -642,7 +642,7 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
 		struct mask_cache_entry *e;
 
 		e = &entries[index];
-		if (e->skb_hash == skb_hash) {
+		if (e->skb_hash == skb_hash) {//如果cache于即为所要查找的流表
 			atomic_inc(&hit_cache);
 			flow = flow_lookup(tbl, ti, ma, key, n_mask_hit,
 					   &e->mask_index);

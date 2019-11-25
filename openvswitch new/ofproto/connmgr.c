@@ -1407,7 +1407,7 @@ ofconn_run(struct ofconn *ofconn,
 
     /* Limit the number of iterations to avoid starving other tasks. */
     for (int i = 0; i < 50 && ofconn_may_recv(ofconn); i++) {
-        struct ofpbuf *of_msg = rconn_recv(ofconn->rconn);
+        struct ofpbuf *of_msg = rconn_recv(ofconn->rconn);//接收函数
         if (!of_msg) {
             break;
         }
@@ -1417,14 +1417,7 @@ ofconn_run(struct ofconn *ofconn,
         }
 
         //gary code
-        __sync_fetch_and_add (&count_recv , 1 ) ;
-        struct timeval time1;
-        gettimeofday(&time1, NULL);
-        if(time1.tv_sec-time_last_recv_contro.tv_sec>=1){
-            openlog("info",LOG_PID,LOG_LOCAL4);
-            syslog(LOG_DEBUG,"recv_controller:%llu %lu",time1.tv_sec,count_recv);
-            time_last_recv_contro=time1;
-        }
+        __sync_fetch_and_add (&count_recv , 1 ) ;//原子操作，自增
         //gary code end
 
         struct ovs_list msgs;
@@ -1598,21 +1591,13 @@ ofconn_set_rate_limit(struct ofconn *ofconn, int rate, int burst)
     }
 }
 
-struct timeval time_last_send_contro={0,0};
 int count_send = 0;
 static void
 ofconn_send(const struct ofconn *ofconn, struct ofpbuf *msg,
             struct rconn_packet_counter *counter)
 {
     //gary code
-    __sync_fetch_and_add (&count_send , 1 ) ;
-    struct timeval time1;
-    gettimeofday(&time1, NULL);
-    if(time1.tv_sec-time_last_send_contro.tv_sec>=1){
-        openlog("info",LOG_PID,LOG_LOCAL4);
-        syslog(LOG_DEBUG,"send_controller:%llu %lu",time1.tv_sec,count_send);
-        time_last_send_contro=time1;
-    }
+    __sync_fetch_and_add (&count_send , 1 ) ;//原子操作，自增
     //gary code end
 
     ofpmsg_update_length(msg);
