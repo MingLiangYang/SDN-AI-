@@ -536,24 +536,24 @@ bool ovs_meter_execute(struct datapath *dp, struct sk_buff *skb,
 }
 
 static struct genl_ops dp_meter_genl_ops[] = {
-	{ .cmd = OVS_METER_CMD_FEATURES,
+	{ .cmd = OVS_METER_CMD_FEATURES,//请求内核态中meter表的属性比如MAX_METERS、MAX_BANDS、bands的类型
 		.flags = 0,		  /* OK for unprivileged users. */
 		.policy = meter_policy,
 		.doit = ovs_meter_cmd_features
 	},
-	{ .cmd = OVS_METER_CMD_SET,
+	{ .cmd = OVS_METER_CMD_SET,//修改meter表
 		.flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN
 					   *  privilege.
 					   */
 		.policy = meter_policy,
 		.doit = ovs_meter_cmd_set,
 	},
-	{ .cmd = OVS_METER_CMD_GET,
+	{ .cmd = OVS_METER_CMD_GET,//获取meter表
 		.flags = 0,		  /* OK for unprivileged users. */
 		.policy = meter_policy,
 		.doit = ovs_meter_cmd_get,
 	},
-	{ .cmd = OVS_METER_CMD_DEL,
+	{ .cmd = OVS_METER_CMD_DEL,//删除meter表
 		.flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN
 					   *  privilege.
 					   */

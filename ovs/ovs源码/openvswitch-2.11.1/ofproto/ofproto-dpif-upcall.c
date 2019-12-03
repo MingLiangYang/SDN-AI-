@@ -815,7 +815,7 @@ recv_upcalls(struct handler *handler)
 
         error = upcall_receive(upcall, udpif->backer, &dupcall->packet,
                                dupcall->type, dupcall->userdata, flow, mru,
-                               &dupcall->ufid, PMD_ID_NULL);
+                               &dupcall->ufid, PMD_ID_NULL);//填充upcall结构体
         if (error) {
             if (error == ENODEV) {
                 /* Received packet on datapath port for which we couldn't

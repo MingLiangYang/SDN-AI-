@@ -2669,7 +2669,7 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
                 return error;
             }
 
-            error = parse_odp_packet(dpif, buf, upcall, &dp_ifindex);//解析数据
+            error = parse_odp_packet(dpif, buf, upcall, &dp_ifindex);//解析数据，将数据处理成dpif_upcall结构体形式
             if (!error && dp_ifindex == dpif->dp_ifindex) {
                 return 0;
             } else if (error) {

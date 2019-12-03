@@ -1559,23 +1559,23 @@ static const struct nla_policy flow_policy[OVS_FLOW_ATTR_MAX + 1] = {
 };
 
 static struct genl_ops dp_flow_genl_ops[] = {
-	{ .cmd = OVS_FLOW_CMD_NEW,
+	{ .cmd = OVS_FLOW_CMD_NEW,//添加新的流表项
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = flow_policy,
 	  .doit = ovs_flow_cmd_new
 	},
-	{ .cmd = OVS_FLOW_CMD_DEL,
+	{ .cmd = OVS_FLOW_CMD_DEL,//删除流表项
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = flow_policy,
 	  .doit = ovs_flow_cmd_del
 	},
-	{ .cmd = OVS_FLOW_CMD_GET,
+	{ .cmd = OVS_FLOW_CMD_GET,//获取流表
 	  .flags = 0,		    /* OK for unprivileged users. */
 	  .policy = flow_policy,
 	  .doit = ovs_flow_cmd_get,
 	  .dumpit = ovs_flow_cmd_dump
 	},
-	{ .cmd = OVS_FLOW_CMD_SET,
+	{ .cmd = OVS_FLOW_CMD_SET,//修改流表
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = flow_policy,
 	  .doit = ovs_flow_cmd_set,
@@ -1951,23 +1951,23 @@ static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
 };
 
 static struct genl_ops dp_datapath_genl_ops[] = {
-	{ .cmd = OVS_DP_CMD_NEW,
+	{ .cmd = OVS_DP_CMD_NEW,//新建datapath
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = datapath_policy,
 	  .doit = ovs_dp_cmd_new
 	},
-	{ .cmd = OVS_DP_CMD_DEL,
+	{ .cmd = OVS_DP_CMD_DEL,//删除datapath
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = datapath_policy,
 	  .doit = ovs_dp_cmd_del
 	},
-	{ .cmd = OVS_DP_CMD_GET,
+	{ .cmd = OVS_DP_CMD_GET,//获取datapath
 	  .flags = 0,		    /* OK for unprivileged users. */
 	  .policy = datapath_policy,
 	  .doit = ovs_dp_cmd_get,
 	  .dumpit = ovs_dp_cmd_dump
 	},
-	{ .cmd = OVS_DP_CMD_SET,
+	{ .cmd = OVS_DP_CMD_SET,//修改datapath
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = datapath_policy,
 	  .doit = ovs_dp_cmd_set,
@@ -2396,23 +2396,23 @@ static const struct nla_policy vport_policy[OVS_VPORT_ATTR_MAX + 1] = {
 };
 
 static struct genl_ops dp_vport_genl_ops[] = {
-	{ .cmd = OVS_VPORT_CMD_NEW,
+	{ .cmd = OVS_VPORT_CMD_NEW,//新建vport
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = vport_policy,
 	  .doit = ovs_vport_cmd_new
 	},
-	{ .cmd = OVS_VPORT_CMD_DEL,
+	{ .cmd = OVS_VPORT_CMD_DEL,//删除vport
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = vport_policy,
 	  .doit = ovs_vport_cmd_del
 	},
-	{ .cmd = OVS_VPORT_CMD_GET,
+	{ .cmd = OVS_VPORT_CMD_GET,//获取vport
 	  .flags = 0,		    /* OK for unprivileged users. */
 	  .policy = vport_policy,
 	  .doit = ovs_vport_cmd_get,
 	  .dumpit = ovs_vport_cmd_dump
 	},
-	{ .cmd = OVS_VPORT_CMD_SET,
+	{ .cmd = OVS_VPORT_CMD_SET,//修改vport
 	  .flags = GENL_UNS_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
 	  .policy = vport_policy,
 	  .doit = ovs_vport_cmd_set,
