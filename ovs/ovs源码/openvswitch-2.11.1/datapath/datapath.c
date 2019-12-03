@@ -462,6 +462,15 @@ static void pad_packet(struct datapath *dp, struct sk_buff *skb)
 	}
 }
 
+/*description:，该函数实现了按照Generic netlink的格式将数据包进行封装，然后发送出去
+ *parameter：
+ *@ dp，是数据包所属于的网桥
+ *@ skb，是查询流表对应的数据包
+ *@ key，是上面数据包提取出的关键字
+ *@ upcall_info，一些需要选择性上传的信息，如果为0或者空说明不需要上传
+ *@ cutlen，The number of bytes from the packet end to be removed（没有太看懂有啥用，这句话参考于struct ovs_skb_cb的描述）
+ *return：返回0表示发送成功，使用负值表示错误。
+*/
 static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 				  const struct sw_flow_key *key,
 				  const struct dp_upcall_info *upcall_info,
@@ -512,15 +521,21 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 
 	len = upcall_msg_size(upcall_info, hlen - cutlen,
 			      OVS_CB(skb)->acts_origlen);
-	user_skb = genlmsg_new(len, GFP_ATOMIC); //根据数据大小创建合适大小的skb
+	/**
+	 * genlmsg_new - Allocate a new generic netlink message
+	 * @payload: size of the message payload
+	 * @flags: the type of memory to allocate.
+	 *return a sk_buff 
+	 */
+	user_skb = genlmsg_new(len, GFP_ATOMIC); //根据数据大小创建合适大小的skb,包括了netlink头和generic netlink头
 	if (!user_skb) {
 		err = -ENOMEM;
 		goto out;
 	}
 
 	upcall = genlmsg_put(user_skb, 0, 0, &dp_packet_genl_family,
-			     0, upcall_info->cmd); //添加generic netlink head
-	upcall->dp_ifindex = dp_ifindex;
+			     0, upcall_info->cmd); //添加netlink头（已经填写内容）、 generic netlink head（已经填写内容），以及用户自定义头
+	upcall->dp_ifindex = dp_ifindex;//设置用户自定义头
 
 	err = ovs_nla_put_key(key, key, OVS_PACKET_ATTR_KEY, false, user_skb);
 	BUG_ON(err);
