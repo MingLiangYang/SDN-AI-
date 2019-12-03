@@ -734,7 +734,7 @@ nl_sock_recv__(struct nl_sock *sock, struct ofpbuf *buf, int *nsid, bool wait)
     }
 #ifndef _WIN32
     buf->size = MIN(retval, buf->allocated);
-    if (retval > buf->allocated) {
+    if (retval > buf->allocated) {//netlink消息大小大于分配的ofbuff中数据区大小
         COVERAGE_INC(netlink_recv_jumbo);
         ofpbuf_put(buf, tail, retval - buf->allocated);
     }

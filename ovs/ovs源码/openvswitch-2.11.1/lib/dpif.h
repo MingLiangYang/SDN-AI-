@@ -796,7 +796,7 @@ struct dpif_upcall {
                                    'rte_mbuf' in dp_packet is aligned atleast
                                    on a 64-byte boundary */
     enum dpif_upcall_type type;
-    struct nlattr *key;         /* Flow key. */
+    struct nlattr *key;         /* Flow key. */  //来自datapath的数据解析出来之后这里会指向datapath放上来的key（其实还是存在ofbuff这个结构体里面）
     size_t key_len;             /* Length of 'key' in bytes. */
     ovs_u128 ufid;              /* Unique flow identifier for 'key'. */
     struct nlattr *mru;         /* Maximum receive unit. */

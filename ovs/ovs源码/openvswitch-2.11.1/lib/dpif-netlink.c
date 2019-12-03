@@ -288,7 +288,7 @@ static struct dpif_netlink *
 dpif_netlink_cast(const struct dpif *dpif)
 {
     dpif_assert_class(dpif, &dpif_netlink_class);
-    return CONTAINER_OF(dpif, struct dpif_netlink, dpif);
+    return CONTAINER_OF(dpif, struct dpif_netlink, dpif);//dpif指针指向的内存是dpif_netlink中的dpif成员
 }
 
 static int
@@ -2452,7 +2452,7 @@ static int
 parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
                  struct dpif_upcall *upcall, int *dp_ifindex)
 {
-    static const struct nl_policy ovs_packet_policy[] = {
+    static const struct nl_policy ovs_packet_policy[] = {//定义相应attribute所能够处理的类型
         /* Always present. */
         [OVS_PACKET_ATTR_PACKET] = { .type = NL_A_UNSPEC,
                                      .min_len = ETH_HEADER_LEN },
@@ -2467,14 +2467,14 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
     };
 
     struct ofpbuf b = ofpbuf_const_initializer(buf->data, buf->size);
-    struct nlmsghdr *nlmsg = ofpbuf_try_pull(&b, sizeof *nlmsg);
-    struct genlmsghdr *genl = ofpbuf_try_pull(&b, sizeof *genl);
-    struct ovs_header *ovs_header = ofpbuf_try_pull(&b, sizeof *ovs_header);
+    struct nlmsghdr *nlmsg = ofpbuf_try_pull(&b, sizeof *nlmsg);//从数据中解析出nlmsghdr，本质就是把ofbuff中数据部分开头的nlmsg大小的数据取出，同时会修改ofbuff中data的指针
+    struct genlmsghdr *genl = ofpbuf_try_pull(&b, sizeof *genl);//从数据中解析出genlmsghdr，本质类比上面
+    struct ovs_header *ovs_header = ofpbuf_try_pull(&b, sizeof *ovs_header);//ovs自己封装的一层头，结构体存着datapath本地端口的索引，具体这么使用还不清楚
 
     struct nlattr *a[ARRAY_SIZE(ovs_packet_policy)];
     if (!nlmsg || !genl || !ovs_header
         || nlmsg->nlmsg_type != ovs_packet_family
-        || !nl_policy_parse(&b, 0, ovs_packet_policy, a,
+        || !nl_policy_parse(&b, 0, ovs_packet_policy, a,//解析出attribute的头部指针
                             ARRAY_SIZE(ovs_packet_policy))) {
         return EINVAL;
     }
@@ -2500,6 +2500,7 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
     openlog("info",LOG_PID,LOG_LOCAL4);
     unsigned int used_time=(time2.tv_sec-time1.tv_sec)*1000000+(time2.tv_usec-time1.tv_usec);//根据当前时间计算时延
     syslog(LOG_DEBUG,"gary_upcall:%llu %lu",time2.tv_sec,used_time);//输出到日志
+
     upcall->out_tun_key = a[OVS_PACKET_ATTR_EGRESS_TUN_KEY];
     upcall->actions = a[OVS_PACKET_ATTR_ACTIONS];
     upcall->mru = a[OVS_PACKET_ATTR_MRU];
@@ -2509,7 +2510,7 @@ parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
                     CONST_CAST(struct nlattr *,
                                nl_attr_get(a[OVS_PACKET_ATTR_PACKET])) - 1,
                     nl_attr_get_size(a[OVS_PACKET_ATTR_PACKET]) +
-                    sizeof(struct nlattr));
+                    sizeof(struct nlattr));//让packet指向数据区中的OVS_PACKET_ATTR_PACKET区域
     dp_packet_set_data(&upcall->packet,
                     (char *)dp_packet_data(&upcall->packet) + sizeof(struct nlattr));
     dp_packet_set_size(&upcall->packet, nl_attr_get_size(a[OVS_PACKET_ATTR_PACKET]));
@@ -2608,7 +2609,7 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
                     struct dpif_upcall *upcall, struct ofpbuf *buf)
     OVS_REQ_RDLOCK(dpif->upcall_lock)
 {
-    struct dpif_handler *handler;
+    struct dpif_handler *handler;//该结构体有一些epoll的信息比如监听事件
     int read_tries = 0;
 
     if (!dpif->handlers || handler_id >= dpif->n_handlers) {
@@ -2624,9 +2625,11 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
         do {
             retval = epoll_wait(handler->epoll_fd, handler->epoll_events,
                                 dpif->uc_array_size, 0);
-        } while (retval < 0 && errno == EINTR);
+            //timeout为0，没有等待事件也要立即返回，
+            //成功时，epoll_wait() 返回就绪的请求的 I/O 个数，如果在 timeout 毫秒里没有文件描述符就绪返回零。发生错误时，epoll_wait() 返回 -1 同时把 errno 设置为合适的值。
+        } while (retval < 0 && errno == EINTR);//当发生错误EINTR时继续循环
 
-        if (retval < 0) {
+        if (retval < 0) {//发生错误时
             static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 1);
             VLOG_WARN_RL(&rl, "epoll_wait failed (%s)", ovs_strerror(errno));
         } else if (retval > 0) {
@@ -2634,7 +2637,7 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
         }
     }
 
-    while (handler->event_offset < handler->n_events) {
+    while (handler->event_offset < handler->n_events) {//处理所有epoll_wait中得到的事件
         int idx = handler->epoll_events[handler->event_offset].data.u32;
         struct dpif_channel *ch = &dpif->channels[idx];
 
@@ -2648,7 +2651,7 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
                 return EAGAIN;
             }
 
-            error = nl_sock_recv(ch->sock, buf, NULL, false);
+            error = nl_sock_recv(ch->sock, buf, NULL, false);//不阻塞接收，并将数据填充到buff->base中
             if (error == ENOBUFS) {
                 /* ENOBUFS typically means that we've received so many
                  * packets that the buffer overflowed.  Try again
@@ -2666,7 +2669,7 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
                 return error;
             }
 
-            error = parse_odp_packet(dpif, buf, upcall, &dp_ifindex);
+            error = parse_odp_packet(dpif, buf, upcall, &dp_ifindex);//解析数据
             if (!error && dp_ifindex == dpif->dp_ifindex) {
                 return 0;
             } else if (error) {

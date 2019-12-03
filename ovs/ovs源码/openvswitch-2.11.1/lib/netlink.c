@@ -835,7 +835,7 @@ nl_attr_validate(const struct nlattr *nla, const struct nl_policy *policy)
 bool
 nl_policy_parse(const struct ofpbuf *msg, size_t nla_offset,
                 const struct nl_policy policy[],
-                struct nlattr *attrs[], size_t n_attrs)
+                struct nlattr *attrs[], size_t n_attrs)//解析出每一个atrribute的头指针
 {
     struct nlattr *nla;
     size_t left;

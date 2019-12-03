@@ -795,9 +795,9 @@ recv_upcalls(struct handler *handler)
         int error;
 
         ofpbuf_use_stub(recv_buf, recv_stubs[n_upcalls],
-                        sizeof recv_stubs[n_upcalls]);
+                        sizeof recv_stubs[n_upcalls]);//对ofbuff结构体进行初始化的赋值
         if (dpif_recv(udpif->dpif, handler->handler_id, dupcall, recv_buf)) {
-            ofpbuf_uninit(recv_buf);
+            ofpbuf_uninit(recv_buf);//释放ofbuff内存
             break;
         }
 
@@ -858,7 +858,7 @@ free_dupcall:
     }
 
     if (n_upcalls) {
-        handle_upcalls(handler->udpif, upcalls, n_upcalls);
+        handle_upcalls(handler->udpif, upcalls, n_upcalls);//处理传输上来的upcall
         for (i = 0; i < n_upcalls; i++) {
             dp_packet_uninit(&dupcalls[i].packet);
             ofpbuf_uninit(&recv_bufs[i]);
