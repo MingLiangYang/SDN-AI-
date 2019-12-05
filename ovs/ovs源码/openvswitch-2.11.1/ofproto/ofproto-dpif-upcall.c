@@ -551,6 +551,14 @@ udpif_stop_threads(struct udpif *udpif)
 }
 
 /* Starts the handler and revalidator threads. */
+/*
+参数：
+udpif：这个我没看懂是要干嘛
+n_handlers_:需要开启处理upcall的线程数量
+n_revalidators_:需要开启处理revalidators的线程数量
+
+描述：启动处理upcall和revalidator的线程
+*/
 static void
 udpif_start_threads(struct udpif *udpif, size_t n_handlers_,
                     size_t n_revalidators_)
@@ -749,6 +757,9 @@ udpif_get_n_flows(struct udpif *udpif)
     return flow_count;
 }
 
+
+/*
+*/
 /* The upcall handler thread tries to read a batch of UPCALL_MAX_BATCH
  * upcalls from dpif, processes the batch and installs corresponding flows
  * in dpif. */
@@ -759,7 +770,7 @@ udpif_upcall_handler(void *arg)
     struct handler *handler = arg;
     struct udpif *udpif = handler->udpif;
 
-    while (!latch_is_set(&handler->udpif->exit_latch)) {
+    while (!latch_is_set(&handler->udpif->exit_latch)) {//当没有收到要求该线程退出的消息时，继续循环。
         int i=recv_upcalls(handler);
         if (i) {
             poll_immediate_wake();
@@ -774,6 +785,8 @@ udpif_upcall_handler(void *arg)
     return NULL;
 }
 
+/*描述：读取一组来自datapath的Generic Netlink消息，并进行处理，下发相应的流到datapath中。
+*/
 static size_t
 recv_upcalls(struct handler *handler)
 {
@@ -796,7 +809,7 @@ recv_upcalls(struct handler *handler)
 
         ofpbuf_use_stub(recv_buf, recv_stubs[n_upcalls],
                         sizeof recv_stubs[n_upcalls]);//对ofbuff结构体进行初始化的赋值
-        if (dpif_recv(udpif->dpif, handler->handler_id, dupcall, recv_buf)) {
+        if (dpif_recv(udpif->dpif, handler->handler_id, dupcall, recv_buf)) {//如果接收不成功
             ofpbuf_uninit(recv_buf);//释放ofbuff内存
             break;
         }
@@ -815,7 +828,7 @@ recv_upcalls(struct handler *handler)
 
         error = upcall_receive(upcall, udpif->backer, &dupcall->packet,
                                dupcall->type, dupcall->userdata, flow, mru,
-                               &dupcall->ufid, PMD_ID_NULL);//填充upcall结构体
+                               &dupcall->ufid, PMD_ID_NULL);//填充将dpif_upcall的信息转移到upcall结构体，同时完善upcall信息
         if (error) {
             if (error == ENODEV) {
                 /* Received packet on datapath port for which we couldn't
@@ -842,7 +855,7 @@ recv_upcalls(struct handler *handler)
         flow_extract(&dupcall->packet, flow);
 
         error = process_upcall(udpif, upcall,
-                               &upcall->odp_actions, &upcall->wc);
+                               &upcall->odp_actions, &upcall->wc);//查询流表并获取要执行的动作
         if (error) {
             goto cleanup;
         }

@@ -635,6 +635,15 @@ nl_sock_send_seq(struct nl_sock *sock, const struct ofpbuf *msg,
     return nl_sock_send__(sock, msg, nlmsg_seq, wait);
 }
 
+/*
+@ 参数：
+sock:保存端口号，文件描述符（sock从哪里来的）
+buff:信息存储位置
+nsid：没看懂是什么
+wait：是否阻塞接收
+@ 描述：调用socket中的recvmsg函数，接收一个Generic Netlink消息，并存放到ofbuff中。
+@ 返回值：返回0表示成功
+*/
 static int
 nl_sock_recv__(struct nl_sock *sock, struct ofpbuf *buf, int *nsid, bool wait)
 {

@@ -2448,6 +2448,16 @@ dpif_netlink_queue_to_priority(const struct dpif *dpif OVS_UNUSED,
     }
 }
 
+
+/*
+@ 参数：
+dpif: netlink类型的dapath接口，其中包含了epoll中监听的事件（epoll事件从哪来的）
+buff：存储数据的地方
+ucall：将buff的数据解析成upcall的形式
+dp_ifindex: 取出Generic Netlink的用户自定义头中的变量
+@ 描述：将ofbuff中的数据解析成upcall的形式，本质就是将各个attribute起始地址赋值到upcall中相应的指针。upcall时延获取的代码就是在这个函数上面添加。
+@ 返回值：返回0表示成功
+*/
 static int
 parse_odp_packet(const struct dpif_netlink *dpif, struct ofpbuf *buf,
                  struct dpif_upcall *upcall, int *dp_ifindex)
@@ -2604,6 +2614,16 @@ dpif_netlink_recv_windows(struct dpif_netlink *dpif, uint32_t handler_id,
     return EAGAIN;
 }
 #else
+
+/*
+@ 参数：
+dpif_:netlink类型的dapath接口，其中包含了epoll中监听的事件（epoll事件从哪来的）
+handler_id:区分不同的处理线程，记录相应线程处理的事件
+upcall：需要将接收的数据解析到此结构体（有相应的Generic Netlink数据包的attribute成员指针，如key）
+buf：需要将接收的数据填首先填到此结构体，（此结构体一般用来作为openflow数据包载体）
+@ 描述：接收一个Generic Netlink消息，并填写dpif_upcall和ofbuf结构体。更新dpif->handlers中相应线程处理的epoll事件
+@ 返回值：返回0表示成功
+*/
 static int
 dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
                     struct dpif_upcall *upcall, struct ofpbuf *buf)
@@ -2637,7 +2657,7 @@ dpif_netlink_recv__(struct dpif_netlink *dpif, uint32_t handler_id,
         }
     }
 
-    while (handler->event_offset < handler->n_events) {//处理所有epoll_wait中得到的事件
+    while (handler->event_offset < handler->n_events) {//处理所有epoll_wait中得到的事件,读出数据之后就返回
         int idx = handler->epoll_events[handler->event_offset].data.u32;
         struct dpif_channel *ch = &dpif->channels[idx];
 
@@ -2686,7 +2706,7 @@ static int
 dpif_netlink_recv(struct dpif *dpif_, uint32_t handler_id,
                   struct dpif_upcall *upcall, struct ofpbuf *buf)
 {
-    struct dpif_netlink *dpif = dpif_netlink_cast(dpif_);
+    struct dpif_netlink *dpif = dpif_netlink_cast(dpif_);//将dpif转化为dpif_netlink,dpif是dpif_netlink的一个成员
     int error;
 
     fat_rwlock_rdlock(&dpif->upcall_lock);

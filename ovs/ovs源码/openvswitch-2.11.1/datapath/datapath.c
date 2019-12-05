@@ -464,6 +464,7 @@ static void pad_packet(struct datapath *dp, struct sk_buff *skb)
 
 /*description:，该函数实现了按照Generic netlink的格式将数据包进行封装，然后发送出去
  *parameter：
+ ####谁会调用它：查找流表失败的时候要上传信息，一些flow entry对应的action也会调用。。。。
  *@ dp，是数据包所属于的网桥
  *@ skb，是查询流表对应的数据包
  *@ key，是上面数据包提取出的关键字
@@ -611,13 +612,22 @@ out:
 		skb_tx_error(skb);
 		atomic_inc(&upcall_fail);
 	}
-
+	printk("sock 0 no exits:%d",user_skb.sock?1:0);//查看是否存在
 	printk("upcall:%lu %lu %lu",txc.tv_sec,atomic_read(&upcall_nummber),len);//依次输出时间戳,upcall数量，当前upcall长度
 	kfree_skb(user_skb);
 	kfree_skb(nskb);
 	return err;
 }
 
+/*
+@ 参数:
+	skb:从用户态发送给内核态的数据包
+	info：genl_info结构体
+@ 返回值:返回零表示成功,失败的时候返回linux中 <errno.h>中的相应的错误类型，一般错误习惯返回负值，因此常常在这些错误类型前面添加负号。
+@ 描述:此函数是netlink命令OVS_PACKET_CMD_EXECUTE的一个回调函数，当内核态接收到用户态发送OVS_FLOW_CMD_SET命令后，就会执行该函数；
+同时，datapath.c中的数据包处理函数ovs_dp_process_packet也会在查找到流表后对该函数进行调用。该函数执行对数据包处理的命令比如转发（
+其他命令还有待研究）。
+*/
 static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 {
 	struct ovs_header *ovs_header = info->userhdr;

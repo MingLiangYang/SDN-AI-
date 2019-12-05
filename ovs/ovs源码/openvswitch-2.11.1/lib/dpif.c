@@ -1572,16 +1572,25 @@ dpif_set_config(struct dpif *dpif, const struct smap *cfg)
  *
  * Returns 0 if successful, otherwise a positive errno value.  Returns EAGAIN
  * if no upcall is immediately available. */
+/*
+@ 参数：
+dpif:数据包对应datapath的类型，使用对应的接收函数
+handler_id:区分不同的处理线程
+upcall：需要将接收的数据填充到次结构体（有相应的Generic Netlink数据包的attribute成员指针，如key）
+buf：需要将接收的数据填首先填到此结构体，（此结构体一般用来作为openflow数据包载体）
+@ 返回：0表示成功，其他值表示错误，如EAGAIN（linux编程的错误类型）
+@ 描述：接收一个Generic Netlink消息，并填写dpif_upcall和ofbuf结构体。
+*/
 int
 dpif_recv(struct dpif *dpif, uint32_t handler_id, struct dpif_upcall *upcall,
           struct ofpbuf *buf)
 {
-    int error = EAGAIN;
+    int error = EAGAIN; 
 
     if (dpif->dpif_class->recv) {
         error = dpif->dpif_class->recv(dpif, handler_id, upcall, buf);
         if (!error) {
-            dpif_print_packet(dpif, upcall);
+            dpif_print_packet(dpif, upcall);//将数据包以字符串输出
         } else if (error != EAGAIN) {
             log_operation(dpif, "recv", error);
         }

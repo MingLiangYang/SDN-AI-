@@ -153,6 +153,7 @@ typedef struct _OVS_CT_ZONE_LIMIT {
 
 /* Given POINTER, the address of the given MEMBER in a STRUCT object, returns
    the STRUCT object. */
+/*通过成员变量地址获取结构体地址*/
 #define CONTAINER_OF(POINTER, STRUCT, MEMBER)                           \
         ((STRUCT *) (void *) ((char *) (POINTER) - \
          offsetof (STRUCT, MEMBER)))

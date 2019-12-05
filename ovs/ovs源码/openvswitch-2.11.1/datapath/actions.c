@@ -1525,7 +1525,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 	OVS_CB(skb)->acts_origlen = acts->orig_len;
 	err = do_execute_actions(dp, skb, key,
-				 acts->actions, acts->actions_len);
+				 acts->actions, acts->actions_len);//执行相应动作，比如转发什么的
 
 	if (level == 1)
 		process_deferred_actions(dp);

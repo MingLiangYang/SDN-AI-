@@ -34,7 +34,7 @@ extern "C" {
  *
  * This structure should be treated as opaque by dpif implementations. */
 struct dpif {
-    const struct dpif_class *dpif_class;
+    const struct dpif_class *dpif_class;//所属于的datapath接口的类型，"system", "netdev", etc.
     char *base_name;
     char *full_name;
     uint8_t netflow_engine_type;
