@@ -913,7 +913,9 @@ enum ovs_nat_attr {
  * @OVS_ACTION_ATTR_CLONE: make a copy of the packet and execute a list of
  * actions without affecting the original packet and key.
  */
-
+/*
+流表项对应的动作类型
+*/
 enum ovs_action_attr {
 	OVS_ACTION_ATTR_UNSPEC,
 	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */

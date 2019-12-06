@@ -536,6 +536,15 @@ static bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
 	return cmp_key(flow->id.unmasked_key, key, key_start, key_end);
 }
 
+/*
+@ 参数：
+	 ti：流表实例
+	unmasked：数据包提取出的key
+	mask:相应的掩码，掩码与key相与之后，获取hash值（与之前的hash不一样，之前的hash是为了寻找mask），通过获取的hash值寻找元组所在的链表头
+	n_mask_hit:记录查找mask的次数
+@ 返回值：返回查找到的流表，失败则返回NULL
+@ 描述：查找到相应元组的链表头部，然后遍历该元组查找相匹配的rule
+*/
 static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 					  const struct sw_flow_key *unmasked,
 					  const struct sw_flow_mask *mask,
@@ -550,7 +559,7 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 	hash = flow_hash(&masked_key, &mask->range);
 	head = find_bucket(ti, hash);
 	(*n_mask_hit)++;
-	hlist_for_each_entry_rcu(flow, head, flow_table.node[ti->node_ver]) {
+	hlist_for_each_entry_rcu(flow, head, flow_table.node[ti->node_ver]) {//遍历元组中的rule
 		if (flow->mask == mask && flow->flow_table.hash == hash &&
 		    flow_cmp_masked_key(flow, &masked_key, &mask->range))
 			return flow;
@@ -561,6 +570,17 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 /* Flow lookup does full lookup on flow table. It starts with
  * mask from index passed in *index.
  */
+/*
+@ 参数：
+	tbl：相应datapath中的流表
+	ti：流表实例，流表所在的桶
+	ma：mask数组
+	key:数据包提取出的key值
+	n_mask_hit:记录查找mask的次数
+	index：ma[index]是通过sk_hash查找到的mask
+@ 返回值：返回查找到的流表，失败返回NULL
+@ 描述：如果传入的index是有效的那么只需要查找一个桶内的flow（一个元组内的rule），如果不是有效的那么需要遍历所有的桶
+*/
 static struct sw_flow *flow_lookup(struct flow_table *tbl,
 				   struct table_instance *ti,
 				   const struct mask_array *ma,
@@ -572,7 +592,7 @@ static struct sw_flow *flow_lookup(struct flow_table *tbl,
 	struct sw_flow *flow;
 	int i;
 
-	if (*index < ma->max) {
+	if (*index < ma->max) {//如果index有效，那么只需要查询一个元组内的rule
 		mask = rcu_dereference_ovsl(ma->masks[*index]);
 		if (mask) {
 			flow = masked_flow_lookup(ti, key, mask, n_mask_hit);
@@ -607,13 +627,22 @@ static struct sw_flow *flow_lookup(struct flow_table *tbl,
  * This is per cpu cache and is divided in MC_HASH_SEGS segments.
  * In case of a hash collision the entry is hashed in next segment.
  */
+/*
+@ 参数：
+	tbl：相应datapath中的流表
+	key：数据包提出出的特征
+	skb_hash:数据包的hash值，根据数据包源IP、目的IP、源端口和目的端口计算
+	n_mask_hit:记录查找mask的次数
+@ 返回值：返回查找到的流表
+@ 描述：通过skb_hash得到相应的mask（从mask_cache）,然后用得到的mask传入flow_lookup函数进行流表的查询
+*/
 struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
 					  const struct sw_flow_key *key,
 					  u32 skb_hash,
 					  u32 *n_mask_hit)
 {
 	struct mask_array *ma = rcu_dereference(tbl->mask_array);
-	struct table_instance *ti = rcu_dereference(tbl->ti);
+	struct table_instance *ti = rcu_dereference(tbl->ti);//这个是干啥用的
 	struct mask_cache_entry *entries, *ce;
 	struct sw_flow *flow;
 	u32 hash;
@@ -629,24 +658,24 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
 	/* Pre and post recirulation flows usually have the same skb_hash
 	 * value. To avoid hash collisions, rehash the 'skb_hash' with
 	 * 'recirc_id'.  */
-	if (key->recirc_id)
+	if (key->recirc_id)//从数据包中提取key的时候该值设置为0
 		skb_hash = jhash_1word(skb_hash, key->recirc_id);
 
 	ce = NULL;
 	hash = skb_hash;
-	entries = this_cpu_ptr(tbl->mask_cache);
+	entries = this_cpu_ptr(tbl->mask_cache);//具体参见per_cpu变量
 
 	/* Find the cache entry 'ce' to operate on. */
 	for (seg = 0; seg < MC_HASH_SEGS; seg++) {
-		int index = hash & (MC_HASH_ENTRIES - 1);
+		int index = hash & (MC_HASH_ENTRIES - 1);//后八位全是1，前面全是0，取出hash后八位的值作为index
 		struct mask_cache_entry *e;
 
 		e = &entries[index];
-		if (e->skb_hash == skb_hash) {//如果cache于即为所要查找的流表
+		if (e->skb_hash == skb_hash) {//如果在cache entry找到报文hash相同项，则根据该entry指定的mask查表
 			atomic_inc(&hit_cache);
 			flow = flow_lookup(tbl, ti, ma, key, n_mask_hit,
 					   &e->mask_index);
-			if (!flow)
+			if (!flow)//没找到，就让cache中相应的mask无效
 				e->skb_hash = 0;
 			return flow;
 		}

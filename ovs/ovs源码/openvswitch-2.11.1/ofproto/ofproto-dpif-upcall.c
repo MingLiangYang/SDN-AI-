@@ -1184,13 +1184,13 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
 
     stats.n_packets = 1;
     stats.n_bytes = dp_packet_size(upcall->packet);
-    stats.used = time_msec();
+    stats.used = time_msec();//啥玩意啊？
     stats.tcp_flags = ntohs(upcall->flow->tcp_flags);
 
     xlate_in_init(&xin, upcall->ofproto,
                   ofproto_dpif_get_tables_version(upcall->ofproto),
                   upcall->flow, upcall->ofp_in_port, NULL,
-                  stats.tcp_flags, upcall->packet, wc, odp_actions);
+                  stats.tcp_flags, upcall->packet, wc, odp_actions);//对 xin 进行一些赋值。
 
     if (upcall->type == MISS_UPCALL) {
         xin.resubmit_stats = &stats;
