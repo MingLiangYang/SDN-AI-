@@ -8,10 +8,8 @@ import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import org.jbh.flowcontroller.impl.monitor.ControllerMonitor;
-import org.jbh.flowcontroller.impl.packethandler.utils.BitBufferHelper;
-import org.jbh.flowcontroller.impl.packethandler.utils.BufferException;
-import org.jbh.flowcontroller.impl.packethandler.utils.HexEncode;
-import org.jbh.flowcontroller.impl.packethandler.utils.NetUtils;
+import org.jbh.flowcontroller.impl.packethandler.topology.NetworkGraphService;
+import org.jbh.flowcontroller.impl.packethandler.utils.*;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
@@ -66,6 +64,8 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.Pa
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.TransmitPacketInputBuilder;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NodeId;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
@@ -77,11 +77,19 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Listens to packet-in message, and use localGraph and hostToSwitchTP to choose
+ * proper route
+ *
+ * It has two word mode, traditional(means small topology), shortest path(means
+ * use shortest path to route).
+ */
 public class PacketInHandler implements PacketProcessingListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(PacketInHandler.class);
@@ -94,8 +102,13 @@ public class PacketInHandler implements PacketProcessingListener {
 
     private ListenerRegistration packetListenerRegistration;
 
-    //本地Mac to port 映射  每个Mac地址记录过后就不再修改
+    private final boolean USE_OLD_MODEL = false;
+    NetworkGraphService networkGraphService;
+    HashMap<String,String> hostToSwitchTP;
+    // 本地Mac to port 映射  每个Mac地址记录过后就不再修改
     private Map<InstanceIdentifier<Node>,Map<MacAddress,NodeConnectorRef>> localMacToPort = new ConcurrentHashMap<>();
+    // fix_flow
+    private Map<String,Map<String,String>> FIXED_FLOW_TO_NODE_MAP;
 
     private short flowTableId = 0;
     private int flowPriority = 10;
@@ -112,12 +125,19 @@ public class PacketInHandler implements PacketProcessingListener {
 
     public PacketInHandler(DataBroker dataBroker, NotificationService notificationService,
                            SalFlowService salFlowService, PacketProcessingService packetProcessingService,
-                           ControllerMonitor controllerMonitor){
+                           ControllerMonitor controllerMonitor, NetworkGraphService networkGraphService,
+                           HashMap<String,String> hostToSwitchTP){
         this.notificationService = notificationService;
         this.salFlowService = salFlowService;
         this.packetProcessingService = packetProcessingService;
         this.inventoryReader = new InventoryReader(dataBroker);
         this.controllerMonitor = controllerMonitor;
+        this.networkGraphService = networkGraphService;
+        this.hostToSwitchTP = hostToSwitchTP;
+
+        // fix_flow
+        FixedFlow ff = new FixedFlow();
+        this.FIXED_FLOW_TO_NODE_MAP = ff.getFIXED_FLOW_TO_NODE_MAP();
     }
 
     @Override
@@ -146,21 +166,15 @@ public class PacketInHandler implements PacketProcessingListener {
                 Ipv4Address sourceIp = Ipv4Address.getDefaultInstance(
                         InetAddress.getByAddress(BitBufferHelper.getBits(data, bitOffset + 96, 32)).getHostAddress());
 
-                LOG.debug("JBH: In onPacketReceived: get a IP Packet, souIP:{}, desIP:{}",sourceIp.getValue(),desIp.getValue());
+                LOG.debug("JBH: In onPacketReceived:{} get a IP Packet, souIP:{}, desIP:{}, souMac:{}, desMac:{}"
+                        , packetReceived.getIngress().getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class).getId().getValue()
+                        , sourceIp.getValue(),desIp.getValue(),souceMac.getValue(),desMac.getValue());
 
-                NodeConnectorRef ingress = packetReceived.getIngress();
-                //NodeConnectorRef destNodeConnector = inventoryReader
-                //        .getNodeConnector(ingress.getValue().firstIdentifierOf(Node.class), desMac);
-                NodeConnectorRef destNodeConnector = getDestNodeConnector(ingress,desMac);
-
-                if (destNodeConnector != null) {
-                    sendPacketOut(packetReceived.getPayload(), ingress, destNodeConnector);
-                    //addBidirectionalMacToMacFlows(souceMac, ingress, desMac, destNodeConnector, sourceIp, desIp);
-                    //下单向流表
-                    addMacIPToMacIPFlow(souceMac,desMac,sourceIp,desIp,ingress,destNodeConnector);
+                // forwarding...
+                if (USE_OLD_MODEL){
+                    forwardingBySelfLearn(packetReceived.getIngress(), souceMac, desMac, sourceIp, desIp, packetReceived.getPayload());
                 }else{
-                    LOG.debug("JBH: In onPacketReceived: destNodeConnector is null. Use default port. ");
-                    defaultAction(ingress, sourceIp, desIp, packetReceived.getPayload(), souceMac, desMac);
+                    forwardingByShortestPath(packetReceived.getIngress(), souceMac, desMac, sourceIp, desIp, packetReceived.getPayload());
                 }
 
             }catch (UnknownHostException e){
@@ -170,9 +184,118 @@ public class PacketInHandler implements PacketProcessingListener {
             }finally{
                 controllerMonitor.collectPacketInProcessTime(System.nanoTime() - startTime);
             }
-
-
         }
+    }
+
+    /**
+     * Forwarding by self learning method.
+     * Look up mac-to-port table,(First local table then dataStore)
+     * SendPacketOut and AddFlow.(Use default if no match)
+     */
+    private void forwardingBySelfLearn(NodeConnectorRef ingress, MacAddress sourceMac, MacAddress desMac,
+                                       Ipv4Address sourceIp, Ipv4Address desIp, byte[] payload){
+        NodeConnectorRef destNodeConnector = getDestNodeConnector(ingress,desMac);
+        if (destNodeConnector != null) {
+            sendPacketOut(payload, ingress, destNodeConnector);
+            //下单向流表
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,destNodeConnector);
+        }else{
+            LOG.debug("JBH: In forwardingBySelfLearn: destNodeConnector is null. Use default port. ");
+            defaultAction(ingress, sourceIp, desIp, payload, sourceMac, desMac);
+        }
+
+    }
+
+    /**
+     * Forwarding by shortest path method.
+     * Look up hostMac-to-switchPort table, SendPacketOut and AddFlow(Use default if no match)
+     */
+    private void forwardingByShortestPath(NodeConnectorRef ingress, MacAddress sourceMac, MacAddress desMac,
+                                          Ipv4Address sourceIp, Ipv4Address desIp, byte[] payload){
+        // 源交换机name    "openflow:123"
+        String sourceSwich = ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class).getId().getValue();
+        // 源交换机ID
+        NodeId sourceNodeId = new NodeId(sourceSwich);
+        // 目的主机mac地址    "host:62:9d:2a:72:fa:ca"
+        String desHostMac = "host:" + desMac.getValue();
+
+        // fix_flow
+        /* 规定了以下三个流 在具体的ovs上的出端口 */
+        String fixedFlow = sourceMac.getValue() + "-" + desMac.getValue();
+        fixedFlow = fixedFlow.toUpperCase();
+        if(FIXED_FLOW_TO_NODE_MAP.containsKey(fixedFlow) && FIXED_FLOW_TO_NODE_MAP.get(fixedFlow).containsKey(sourceSwich)){
+            LOG.debug("JBH: In PacketParser: find fixed Flow:{} in{}", fixedFlow, sourceSwich);
+            // 按照指定的端口发出去
+            String desTp = FIXED_FLOW_TO_NODE_MAP.get(fixedFlow).get(sourceSwich);
+            // find the egress
+            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
+                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
+                    .child(NodeConnector.class,
+                            new NodeConnectorKey(new NodeConnectorId(desTp)))
+                    .build());
+            sendPacketOut(payload, ingress, egress);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
+            return;
+        }
+
+
+        /* 非规定流 按照最短路转发 */
+        NodeId desNodeId;
+        String desSwitchPort;
+        if (hostToSwitchTP.containsKey(desHostMac)){
+            // 目的交换机Port的name   "openflow:123:1"
+            desSwitchPort = hostToSwitchTP.get(desHostMac);
+            int firstColon = desSwitchPort.indexOf(":");
+            int secondColon = desSwitchPort.indexOf(":",firstColon+1);
+            // 目标交换机节点
+            desNodeId = new NodeId(desSwitchPort.substring(0, secondColon)); // NodeId of "openflow:123"
+        }else {
+            // TODO: default action
+            LOG.info("hostMac is not find. Send to default switch." +
+                    " souMac:{}, desMac:{}, souIP:{}, desIP:{}"
+                    , sourceMac.getValue(), desMac.getValue(), sourceIp.getValue(), desIp.getValue());
+            desNodeId = new NodeId("openflow:1");
+            desSwitchPort = "openflow:1:4";
+        }
+
+        if(sourceSwich.equals(desNodeId.getValue())) {  // if source node is des node
+            LOG.debug("JBH: In PacketParser: sourceNode is desNode");
+            // find the egress
+            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
+                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
+                    .child(NodeConnector.class,
+                            new NodeConnectorKey(new NodeConnectorId(desSwitchPort)))
+                    .build());
+            sendPacketOut(payload, ingress, egress);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
+        }else{
+            List<Link> shortestLinks = networkGraphService.getPath(sourceNodeId,desNodeId);
+            if(shortestLinks == null || shortestLinks.isEmpty()){
+                LOG.info("JBH: don't have shortestLinks right now");
+                return;
+            }
+            LOG.debug("JBH: In PacketParser: shortestLinks:{}",shortestLinks);
+            Link firstLink = shortestLinks.get(0);
+            // find egress
+            String tp; //  "openflow:123:3"
+            if(firstLink.getSource().getSourceNode().getValue().equals(sourceSwich)){
+                tp = firstLink.getSource().getSourceTp().getValue();
+            } else if(firstLink.getDestination().getDestNode().getValue().equals(sourceSwich)){
+                tp = firstLink.getDestination().getDestTp().getValue();
+            } else{
+                LOG.info("JBH: the first link has mistake");
+                return;
+            }
+            NodeConnectorRef egress = new NodeConnectorRef(InstanceIdentifier.builder(Nodes.class)
+                    .child(Node.class, ingress.getValue().firstIdentifierOf(Node.class).firstKeyOf(Node.class, NodeKey.class))
+                    .child(NodeConnector.class,
+                            new NodeConnectorKey(new NodeConnectorId(tp)))
+                    .build());
+
+            sendPacketOut(payload, ingress, egress);
+            addMacIPToMacIPFlow(sourceMac,desMac,sourceIp,desIp,ingress,egress);
+        }
+
 
     }
 
@@ -462,6 +585,12 @@ public class PacketInHandler implements PacketProcessingListener {
             return;
         }
 
+        if(egress.equals(ingress)) {
+            LOG.info("JBH: In sendPacketOut: ingree is same to egress:{}"
+                    , egress.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId().getValue());
+            return;
+        }
+
         //todo:这种做法 会导致函数不释放之类的吗 因为是异步调用的 startTIme
         long startTime = System.nanoTime(); //sendPacketOut的初始时间
 
@@ -545,14 +674,14 @@ public class PacketInHandler implements PacketProcessingListener {
 
 
     /**
-     * Method called when the blueprint container is created.
+     * register as packet-In Listener
      */
-    public void init() {
+    public void registerAsPacketListener() {
         packetListenerRegistration = notificationService.registerNotificationListener(this);
     }
 
     /**
-     * Method called when the blueprint container is destroyed.
+     * Method called when the class is destroyed.
      */
     public void close() {
         packetListenerRegistration.close();

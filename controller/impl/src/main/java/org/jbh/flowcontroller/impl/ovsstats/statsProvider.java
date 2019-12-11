@@ -70,8 +70,8 @@ public class statsProvider {
             PORT_STATS_PATH = "D:/port_stats.txt";
             FLOW_STATS_PATH = "D:/flow_stats.txt";
         }else{
-            PORT_STATS_PATH = "/home/zju/port_stats.txt";
-            FLOW_STATS_PATH = "/home/zju/flow_stats.txt";
+            PORT_STATS_PATH = "/home/zju/controller/logFile/port_stats.txt";
+            FLOW_STATS_PATH = "/home/zju/controller/logFile/flow_stats.txt";
         }
 
         portfw = new FileWriter(PORT_STATS_PATH);
@@ -336,7 +336,7 @@ public class statsProvider {
                 .getAugmentation(FlowCapableStatisticsGatheringStatus.class)
                 .getSnapshotGatheringStatusEnd();
         if(snapshotGatheringStatusEnd == null){
-            LOG.info("JBH: In isUpdate: Node:{} snapshotGatheringStatusEnd is null, stop writeFile",datapath);
+            LOG.debug("JBH: In isUpdate: Node:{} snapshotGatheringStatusEnd is null, stop writeFile",datapath);
             return false;
         }
 
