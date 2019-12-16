@@ -156,7 +156,7 @@ enum ovs_packet_cmd {
 
 	/* Kernel-to-user notifications. */
 	OVS_PACKET_CMD_MISS,    /* Flow table miss. */
-	OVS_PACKET_CMD_ACTION,  /* OVS_ACTION_ATTR_USERSPACE action. */
+	OVS_PACKET_CMD_ACTION,  /* OVS_ACTION_ATTR_USERSPACE action. *///相应userspace下发的动作,有些动作需要将数据包上传到用户态中
 
 	/* Userspace commands. */
 	OVS_PACKET_CMD_EXECUTE  /* Apply actions to a packet. */

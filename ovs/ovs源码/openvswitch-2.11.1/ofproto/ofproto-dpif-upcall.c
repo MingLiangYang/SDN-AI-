@@ -1190,7 +1190,7 @@ upcall_xlate(struct udpif *udpif, struct upcall *upcall,
     xlate_in_init(&xin, upcall->ofproto,
                   ofproto_dpif_get_tables_version(upcall->ofproto),
                   upcall->flow, upcall->ofp_in_port, NULL,
-                  stats.tcp_flags, upcall->packet, wc, odp_actions);//对 xin 进行一些赋值。
+                  stats.tcp_flags, upcall->packet, wc, odp_actions);//对 xin 进行一些赋值,将upcall中的一些信息转移到xlate_in上。
 
     if (upcall->type == MISS_UPCALL) {
         xin.resubmit_stats = &stats;

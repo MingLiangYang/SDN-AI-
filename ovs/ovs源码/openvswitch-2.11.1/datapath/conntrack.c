@@ -2141,6 +2141,7 @@ static int ovs_ct_limit_cmd_set(struct sk_buff *skb, struct genl_info *info)
 
 exit_err:
 	nlmsg_free(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -2173,6 +2174,7 @@ static int ovs_ct_limit_cmd_del(struct sk_buff *skb, struct genl_info *info)
 
 exit_err:
 	nlmsg_free(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -2213,6 +2215,7 @@ static int ovs_ct_limit_cmd_get(struct sk_buff *skb, struct genl_info *info)
 
 exit_err:
 	nlmsg_free(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 

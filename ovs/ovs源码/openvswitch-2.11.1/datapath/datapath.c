@@ -1148,6 +1148,7 @@ err_kfree_acts:
 err_kfree_flow:
 	ovs_flow_free(new_flow, false);
 error:
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return error;
 }
 
@@ -1346,6 +1347,7 @@ err_unlock_ovs:
 err_kfree_acts:
 	ovs_nla_free_flow_actions(acts);
 error:
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return error;
 }
 
@@ -1426,6 +1428,7 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
 	return genlmsg_reply(reply, info);
 unlock:
 	ovs_unlock();
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -1524,6 +1527,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 unlock:
 	ovs_unlock();
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -1824,6 +1828,7 @@ err_free_dp:
 err_free_reply:
 	kfree_skb(reply);
 err:
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -1881,6 +1886,7 @@ static int ovs_dp_cmd_del(struct sk_buff *skb, struct genl_info *info)
 err_unlock_free:
 	ovs_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -1914,6 +1920,7 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
 err_unlock_free:
 	ovs_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -1943,6 +1950,7 @@ static int ovs_dp_cmd_get(struct sk_buff *skb, struct genl_info *info)
 err_unlock_free:
 	ovs_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -2233,6 +2241,7 @@ restart:
 exit_unlock_free:
 	ovs_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -2285,6 +2294,7 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
 exit_unlock_free:
 	ovs_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -2335,6 +2345,7 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
 exit_unlock_free:
 	ovs_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -2366,6 +2377,7 @@ static int ovs_vport_cmd_get(struct sk_buff *skb, struct genl_info *info)
 exit_unlock_free:
 	rcu_read_unlock();
 	kfree_skb(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 

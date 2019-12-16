@@ -185,6 +185,7 @@ static int ovs_meter_cmd_features(struct sk_buff *skb, struct genl_info *info)
 nla_put_failure:
 	nlmsg_free(reply);
 	err = -EMSGSIZE;
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -292,6 +293,7 @@ static int ovs_meter_cmd_set(struct sk_buff *skb, struct genl_info *info)
 	bool failed;
 
 	if (!a[OVS_METER_ATTR_ID]) {
+		atomic_inc(&cmd_fail_times);//原子操作自增
 		return -ENODEV;
 	}
 
@@ -345,6 +347,7 @@ exit_unlock:
 	nlmsg_free(reply);
 exit_free_meter:
 	kfree(meter);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -359,8 +362,10 @@ static int ovs_meter_cmd_get(struct sk_buff *skb, struct genl_info *info)
 	struct sk_buff *reply;
 	struct dp_meter *meter;
 
-	if (!a[OVS_METER_ATTR_ID])
+	if (!a[OVS_METER_ATTR_ID]){
+		atomic_inc(&cmd_fail_times);//原子操作自增
 		return -EINVAL;
+	}
 
 	meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
 
@@ -398,6 +403,7 @@ static int ovs_meter_cmd_get(struct sk_buff *skb, struct genl_info *info)
 exit_unlock:
 	ovs_unlock();
 	nlmsg_free(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
@@ -412,8 +418,10 @@ static int ovs_meter_cmd_del(struct sk_buff *skb, struct genl_info *info)
 	struct sk_buff *reply;
 	struct dp_meter *old_meter;
 
-	if (!a[OVS_METER_ATTR_ID])
+	if (!a[OVS_METER_ATTR_ID]){
+		atomic_inc(&cmd_fail_times);//原子操作自增
 		return -EINVAL;
+	}
 	meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
 
 	reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_DEL,
@@ -445,6 +453,7 @@ static int ovs_meter_cmd_del(struct sk_buff *skb, struct genl_info *info)
 exit_unlock:
 	ovs_unlock();
 	nlmsg_free(reply);
+	atomic_inc(&cmd_fail_times);//原子操作自增
 	return err;
 }
 
