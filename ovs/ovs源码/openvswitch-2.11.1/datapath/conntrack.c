@@ -48,6 +48,8 @@
 #define nf_nat_range2 nf_nat_range
 #endif
 
+extern atomic_t cmd_fail_times;
+
 struct ovs_ct_len_tbl {
 	int maxlen;
 	int minlen;

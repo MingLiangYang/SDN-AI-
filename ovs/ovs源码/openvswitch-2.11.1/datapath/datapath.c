@@ -612,7 +612,7 @@ out:
 		skb_tx_error(skb);
 		atomic_inc(&upcall_fail);
 	}
-	printk("sock 0 no exits:%d",user_skb.sock?1:0);//查看是否存在
+	//printk("sock 0 no exits:%d",user_skb.sock?1:0);//查看是否存在
 	printk("upcall:%lu %lu %lu",txc.tv_sec,atomic_read(&upcall_nummber),len);//依次输出时间戳,upcall数量，当前upcall长度
 	kfree_skb(user_skb);
 	kfree_skb(nskb);

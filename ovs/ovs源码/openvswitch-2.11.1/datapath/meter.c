@@ -24,6 +24,9 @@
 
 #define METER_HASH_BUCKETS 1024
 
+extern atomic_t cmd_fail_times;
+
+
 static const struct nla_policy meter_policy[OVS_METER_ATTR_MAX + 1] = {
 	[OVS_METER_ATTR_ID] = { .type = NLA_U32, },
 	[OVS_METER_ATTR_KBPS] = { .type = NLA_FLAG },
