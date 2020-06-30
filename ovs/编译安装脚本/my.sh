@@ -1,10 +1,24 @@
+如何编译安装该OVS，并使用其记录流经该OVS的特征数据（详细特征数据参考技术文档）？
+
+1.首先，因为OVS包括内核态和用户态，因此特征数据有些是在内核态下，另一些是在用户态下。
+这导致了内核态特征数据和用户态特征数据是使用不同方法来取。
+
+2.内核态的数据会输出到/var/local/log/kernal.log中。
+
+3.用户态的数据使用rsysylog来记录，需要手动在/etc/rsyslog.conf配置文件中添加如下语句(保存文件位置自行修改)：
+local4.*	/home/gary/gary.log
+然后重启日志系统，在shell中运行如下命令
+/etc/init.d/rsyslog restart #重启日志系统
+
+4.接下来运行如下编译安装命令
+编译安装命令：
 ./boot.sh
 ./configure --with-linux=/lib/modules/$(uname -r)/build
 make -j4
 make install
 make modules_install
 modprobe openvswitch
-lsmod | grep openvswitch
+#lsmod | grep openvswitch
 mkdir -p /usr/local/etc/openvswitch
 ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
 mkdir -p /usr/local/var/run/openvswitch
@@ -16,55 +30,12 @@ ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
     --pidfile --detach
 ovs-vsctl --no-wait init
 ovs-vswitchd --pidfile --detach --log-file
-ps -ea | grep ovs
+#ps -ea | grep ovs
 
-
-ovs-vsctl add-br br0
-ovs-vsctl add-port br0 veth1
-ovs-vsctl set interface veth1 type=internal
-ovs-vsctl add-port br0 veth0
-ovs-vsctl set interface veth0 type=internal
-
-ifconfig veth0 192.168.181.204 netmask 255.255.255.0
-ifconfig veth1 192.168.181.205 netmask 255.255.255.0
-
-ping -I 192.168.181.205 -c 10 192.168.181.204
-
-sudo ovs-dpctl del-dp ovs-system
-
-
-date +%s>>my
-top -b -n 1 | grep ovs  >> my
-ps -eL
-
-gcc test.c -o test
-
-
-cat /proc/interrupts |grep ens33
-
-lspci | grep -i net
-
-
-
-
+5.删除OVS，运行如下命令：
 sudo killall ovsdb-server
 sudo killall ovs-vswitchd
 sudo apt-get remove openvswitch-common openvswitch-datapath-dkms openvswitch-controller openvswitch-pki openvswitch-switch
 ovs-dpctl del-dp ovs-system
 modprobe -r openvswitch 
 rmmod openvswitch
-
-
-sudo ip tuntap add dev tap1 mod tap
-sudo ip link set tap1 up
-sudo ip tuntap add dev tap2 mod tap
-sudo ip link set tap2 up
-sudo ip tuntap add dev tap3 mod tap
-sudo ip link set tap3 up
-sudo ip tuntap add dev tap4 mod tap
-sudo ip link set tap4 up
-sudo ip tuntap add dev tap5 mod tap
-sudo ip link set tap5 up
-
-
-/etc/init.d/rsyslog restart #重启日志系统
