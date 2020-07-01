@@ -7,6 +7,7 @@
 
 3.用户态的数据使用rsysylog来记录，需要手动在/etc/rsyslog.conf配置文件中添加如下语句(保存文件位置自行修改)：
 local4.*	/home/gary/gary.log
+然后到相应目录创建上述命令中的log文件。并修改log文件以及所在目录权限，否则无法写入。
 然后重启日志系统，在shell中运行如下命令
 /etc/init.d/rsyslog restart #重启日志系统
 
