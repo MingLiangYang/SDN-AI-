@@ -3,7 +3,7 @@
 1.首先，因为OVS包括内核态和用户态，因此特征数据有些是在内核态下，另一些是在用户态下。
 这导致了内核态特征数据和用户态特征数据是使用不同方法来取。
 
-2.内核态的数据会输出到/var/local/log/kernal.log中。
+2.内核态的数据会输出到/var/log/kern.log中。
 
 3.用户态的数据使用rsysylog来记录，需要手动在/etc/rsyslog.conf配置文件中添加如下语句(保存文件位置自行修改)：
 local4.*	/home/gary/gary.log
@@ -40,3 +40,29 @@ sudo apt-get remove openvswitch-common openvswitch-datapath-dkms openvswitch-con
 ovs-dpctl del-dp ovs-system
 modprobe -r openvswitch 
 rmmod openvswitch
+
+6.最后获得实验数据kern.log和gary.log分别保存着内核态数据和用户态数据，
+  使用当前文件夹下的data_process.py对数据进行处理，生成文件
+  datapath_Gary,datapath_upcall,user_table_time,user_upcall和userspace
+
+  具体数据含义入下：
+	datapath_Gary文件：
+		timep、 ip  、ip、port、port、 
+		hit_kernalFlow_packNum、find_kernalFlow_msec、ovs_flow_cmd_set_num、
+		ovs_flow_cmd_get_num、ovs_flow_cmd_del_num、ovs_execute_actions_num、
+		hit_catch_num、cmd_fail_times;
+			
+	user_upcall文件：
+		timep、upcall_delay
+			
+	datapath_upcall文件：
+		timep、upcall_num、upcall_length
+
+	user_table_time文件：
+		timep、user_table_time
+			
+	userspace文件:
+		timep、recv_controller、send_controller、udpif_upcall_handler、hit_user_table_count、user_table_count、main_times。
+
+
+  好了，现在可以把数据交给叫我金处理了！
