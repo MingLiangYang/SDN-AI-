@@ -94,6 +94,7 @@ atomic_t cmd_set_ex_times= ATOMIC_INIT(0);
 atomic_t cmd_get_ex_times= ATOMIC_INIT(0);
 atomic_t cmd_del_ex_times= ATOMIC_INIT(0);
 atomic_t cmd_fail_times= ATOMIC_INIT(0);
+atomic_t last_output_time= ATOMIC_INIT(0);
 
 extern atomic_t ovs_execute_actions_times;
 extern atomic_t hit_cache;
@@ -295,14 +296,18 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	}
 	int used_time=(int)(end_find.tv_usec)-(int)(start_find.tv_usec);
 	used_time=1000000*((int)(end_find.tv_sec)-(int)(start_find.tv_sec))+used_time;
-	int error_printk=printk("Gary:%lu " NIPQUAD_FMT " " NIPQUAD_FMT " %lu %lu %lld %d %lld %ld %ld %ld %ld %ld\n",\
-	 txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,atomic_read(&hit_kernal_table),used_time,\
-	 atomic_read(&cmd_set_ex_times),atomic_read(&cmd_get_ex_times),\
-	 atomic_read(&cmd_del_ex_times),atomic_read(&ovs_execute_actions_times),\
-	 atomic_read(&hit_cache),atomic_read(&cmd_fail_times));
-	if(error_printk<1){
-		printk("printk error");
+	if(atomic_read(last_output_time)>end_find.tv_sec){
+		atomic_set(last_output_time,end_find.tv_sec);
+		int error_printk=printk("Gary:%lu " NIPQUAD_FMT " " NIPQUAD_FMT " %lu %lu %lld %d %lld %ld %ld %ld %ld %ld\n",\
+		txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,atomic_read(&hit_kernal_table),used_time,\
+		atomic_read(&cmd_set_ex_times),atomic_read(&cmd_get_ex_times),\
+		atomic_read(&cmd_del_ex_times),atomic_read(&ovs_execute_actions_times),\
+		atomic_read(&hit_cache),atomic_read(&cmd_fail_times));
+		if(error_printk<1){
+			printk("printk error");
+		}
 	}
+	
 
 	if (unlikely(!flow)) {
 		struct dp_upcall_info upcall;
@@ -612,8 +617,11 @@ out:
 		skb_tx_error(skb);
 		atomic_inc(&upcall_fail);
 	}
-	//printk("sock 0 no exits:%d",user_skb.sock?1:0);//查看是否存在
-	printk("upcall:%lu %lu %lu",txc.tv_sec,atomic_read(&upcall_nummber),len);//依次输出时间戳,upcall数量，当前upcall长度
+	if(atomic_read(last_output_time)>txc.tv_sec){
+		atomic_set(last_output_time,txc.tv_sec);
+		//printk("sock 0 no exits:%d",user_skb.sock?1:0);//查看是否存在
+		printk("upcall:%lu %lu %lu",txc.tv_sec,atomic_read(&upcall_nummber),len);//依次输出时间戳,upcall数量，当前upcall长度
+	}
 	kfree_skb(user_skb);
 	kfree_skb(nskb);
 	return err;
