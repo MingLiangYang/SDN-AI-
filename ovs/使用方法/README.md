@@ -5,11 +5,12 @@
 
 2.内核态的数据会输出到/var/log/kern.log中。
 
-3.用户态的数据使用rsysylog来记录，需要手动在/etc/rsyslog.conf配置文件中添加如下语句(保存文件位置自行修改)：
+3.用户态的数据使用rsysylog来记录，需要手动在/etc/rsyslog.conf配置文件中随意位置添加一行(保存文件位置自行修改)：
 ```
 local4.*	/home/gary/gary.log
 ```
-然后到相应目录创建上述命令中的log文件。并修改log文件以及所在目录权限，否则无法写入。
+然后到相应目录创建上述命令中的log文件。并修改log文件以及所在目录权限，这个很重要！！！一定要连同文件所在目录的权限也修改，否则gary.log文件无法被ovs写入。
+
 然后重启日志系统，在shell中运行如下命令
 ```
 /etc/init.d/rsyslog restart #重启日志系统
@@ -38,18 +39,11 @@ ovs-vsctl --no-wait init
 ovs-vswitchd --pidfile --detach --log-file
 ps -ea | grep ovs#有相关ovs进程输出
 ```
+至此ovs就安装成功了
 
-5.删除OVS，运行如下命令(如果需要删除的话)：
-```
-sudo killall ovsdb-server
-sudo killall ovs-vswitchd
-sudo apt-get remove openvswitch-common openvswitch-datapath-dkms openvswitch-controller openvswitch-pki openvswitch-switch
-ovs-dpctl del-dp ovs-system
-modprobe -r openvswitch 
-rmmod openvswitch
-```
 
-6.最后获得实验数据kern.log和gary.log分别保存着内核态数据和用户态数据，
+
+5.最后获得实验数据kern.log和gary.log分别保存着内核态数据和用户态数据，
   使用当前文件夹下的data_process.py对数据进行处理，生成文件
   ```datapath_Gary,datapath_upcall,user_table_time,user_upcall和userspace```
 
@@ -77,6 +71,20 @@ rmmod openvswitch
 
   好了，现在可以把数据交给叫我金处理了！
 
+
+
+
+
+
+如果要删除OVS运行如下命令(如果需要删除的话)：
+```
+sudo killall ovsdb-server
+sudo killall ovs-vswitchd
+sudo apt-get remove openvswitch-common openvswitch-datapath-dkms openvswitch-controller openvswitch-pki openvswitch-switch
+ovs-dpctl del-dp ovs-system
+modprobe -r openvswitch 
+rmmod openvswitch
+```
 
 ！！！！！！！！
 注意事项：该版本支持的linux内核为4.18，内核过高会出现许多问题，请使用4.18版本的内核！
