@@ -22,6 +22,8 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/socket.h>
+#include <syslog.h>
+#include <sys/time.h>
 
 #include "bfd.h"
 #include "bitmap.h"
@@ -91,6 +93,7 @@ VLOG_DEFINE_THIS_MODULE(ofproto_dpif_xlate);
  * recursive or not. */
 #define MAX_RESUBMITS (MAX_DEPTH * MAX_DEPTH)
 
+int user_table_time;
 /* The structure holds an array of IP addresses assigned to a bridge and the
  * number of elements in the array. These data are mutable and are evaluated
  * when ARP or Neighbor Advertisement packets received on a native tunnel
@@ -793,7 +796,6 @@ xlate_report_table(const struct xlate_ctx *ctx, struct rule_dpif *rule,
     if (OVS_LIKELY(!ctx->xin->trace)) {
         return;
     }
-
     struct ds s = DS_EMPTY_INITIALIZER;
     ds_put_format(&s, "%2d. ", table_id);
     if (rule == ctx->xin->ofproto->miss_rule) {
@@ -4307,7 +4309,6 @@ xlate_table_action(struct xlate_ctx *ctx, ofp_port_t in_port, uint8_t table_id,
         if (with_ct_orig) {
             tuple_swap(&ctx->xin->flow, ctx->wc);
         }
-
         if (rule) {
             /* Fill in the cache entry here instead of xlate_recursively
              * to make the reference counting more explicit.  We take a
