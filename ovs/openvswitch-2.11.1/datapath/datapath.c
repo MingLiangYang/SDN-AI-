@@ -298,14 +298,16 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	if(flow){//如果查找到相应的流表项
 		atomic_inc(&hit_kernal_table);
 	}else{
-		atomic_inc(hit_fail_kernal_table);
+		atomic_inc(&hit_fail_kernal_table);
 	}
 	int used_time=(int)(end_find.tv_usec)-(int)(start_find.tv_usec);
 	used_time=1000000*((int)(end_find.tv_sec)-(int)(start_find.tv_sec))+used_time;
 	if(atomic_read(&last_output_time)<end_find.tv_sec){
 		atomic_set(&last_output_time,end_find.tv_sec);
 		int error_printk=printk("Gary:%lu " NIPQUAD_FMT " " NIPQUAD_FMT " %lu %lu %lld %d %lld %ld %ld %ld %ld %ld %ld %ld %ld\n",\
-		txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,atomic_read(&hit_kernal_table),used_time,\
+		txc.tv_sec,NIPQUAD(sip),NIPQUAD(dip),src_port,dst_port,
+		atomic_read(&hit_kernal_table), atomic_read(&hit_fail_kernal_table), 
+		used_time,
 		atomic_read(&cmd_set_ex_times),atomic_read(&cmd_get_ex_times),\
 		atomic_read(&cmd_del_ex_times),atomic_read(&ovs_execute_actions_times),\
 		atomic_read(&hit_cache), atomic_read(&total_times_cache),
