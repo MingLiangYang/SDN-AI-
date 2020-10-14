@@ -2616,7 +2616,7 @@ static int __init dp_init(void)
 
 	BUILD_BUG_ON(sizeof(struct ovs_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
 	struct timeval k;
-	pr_info("Open vSwitch switching datapath upcall delay %d %d %d %s\n",sizeof(k.tv_sec),sizeof(k.tv_usec),sizeof(k), VERSION);
+	pr_info("Open vSwitch switching datapath upcall delay mingliang!!! %d %d %d %s\n",sizeof(k.tv_sec),sizeof(k.tv_usec),sizeof(k), VERSION);
 	ovs_nsh_init();
 	err = action_fifos_init();
 
