@@ -17,7 +17,7 @@ local4.*	/var/log/gary.log
 ```
 4.安装之前，确保你的内核版本不超过4.18，超过4.18的内核将无法安装，请更换内核。内核版本最好就是4.18，我尝试过4.15版本的内核，但是出现了问题。
 
-5.为了防止安装过程中安装了linux自带的openvswitch模块，我们需要把目录'/lib/modules/4.18.0-14-generic/kernel/net/openvswitch/'删除。目录中的内核版本视你的个人情况而定。
+5.为了防止安装过程中安装了linux自带的openvswitch模块，我们需要把目录`/lib/modules/4.18.0-14-generic/kernel/net/openvswitch/`删除。目录中的内核版本视你的个人情况而定。
 
 6.接下来运行如下编译安装命令
 编译安装命令：
