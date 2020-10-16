@@ -25,14 +25,14 @@ local4.*	/var/log/gary.log
 ./boot.sh
 ./configure --with-linux=/lib/modules/$(uname -r)/build
 make -j4
-make install
-make modules_install
-modprobe openvswitch
+sudo make install
+sudo make modules_install
+sudo modprobe openvswitch
 lsmod | grep openvswitch #可以看到ovs相关的内核模块输出
-mkdir -p /usr/local/etc/openvswitch
-ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema #可能报错说已经存在，这种情况不用管，继续
-mkdir -p /usr/local/var/run/openvswitch
-ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
+sudo mkdir -p /usr/local/etc/openvswitch
+sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema #可能报错说已经存在，这种情况不用管，继续
+sudo mkdir -p /usr/local/var/run/openvswitch
+sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
     --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
     --private-key=db:Open_vSwitch,SSL,private_key \
     --certificate=db:Open_vSwitch,SSL,certificate \
