@@ -17,12 +17,16 @@ local4.*	/var/log/gary.log
 ```
 4.安装之前，确保你的内核版本不超过4.18，超过4.18的内核将无法安装，请更换内核。内核版本最好就是4.18，我尝试过4.15版本的内核，但是出现了问题。
 
-5.为了防止安装过程中安装了linux自带的openvswitch模块，我们需要把目录`/lib/modules/4.18.0-14-generic/kernel/net/openvswitch/`删除。目录中的内核版本视你的个人情况而定。
+5.为了防止安装过程中安装了linux自带的openvswitch模块，我们需要把目录`/lib/modules/(内核版本)/kernel/net/openvswitch/`删除。每个内核版本都会有这个目录，要把所有内核版本的都删掉。
 
-6.接下来运行如下编译安装命令
+6.安装基本的编译工具 `sudo apt-get install gcc make autoconf libtool  libelf-dev`
+
+7.修改ovs源码目录下所有文件权限，在ovs源码目录中执行：`chmod -R 777 ./`
+
+8.接下来运行如下编译安装命令(在执行这些安装命令之前建议执行下面的删除ovs命令)
 编译安装命令(不要复制#之后的说明到终端执行)：
 ```
-./boot.sh
+./boot.sh  #不能执行，可能是没有执行权限，修改执行权限：sudo chmod +x ./boot.sh
 ./configure --with-linux=/lib/modules/$(uname -r)/build
 make -j4
 sudo make install
@@ -46,7 +50,7 @@ ps -ea | grep ovs #有相关ovs进程输出
 
 
 
-7.最后获得实验数据kern.log和gary.log分别保存着内核态数据和用户态数据，
+9.最后获得实验数据kern.log和gary.log分别保存着内核态数据和用户态数据，
   使用当前文件夹下的data_process.py对数据进行处理，生成文件
   ```datapath_Gary,datapath_upcall,user_table_time,user_upcall和userspace```
 
