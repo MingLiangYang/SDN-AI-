@@ -84,9 +84,9 @@ ps -ea | grep ovs #有相关ovs进程输出
 sudo killall ovsdb-server
 sudo killall ovs-vswitchd
 sudo apt-get remove openvswitch-common openvswitch-datapath-dkms openvswitch-controller openvswitch-pki openvswitch-switch
-ovs-dpctl del-dp ovs-system
-modprobe -r openvswitch 
-rmmod openvswitch
+sudo ovs-dpctl del-dp ovs-system
+sudo modprobe -r openvswitch 
+sudo rmmod openvswitch
 ```
 
 ！！！！！！！！
