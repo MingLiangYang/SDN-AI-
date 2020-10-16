@@ -38,8 +38,8 @@ sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
     --certificate=db:Open_vSwitch,SSL,certificate \
     --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert \
     --pidfile --detach
-ovs-vsctl --no-wait init
-ovs-vswitchd --pidfile --detach --log-file
+sudo ovs-vsctl --no-wait init
+sudo ovs-vswitchd --pidfile --detach --log-file
 ps -ea | grep ovs #有相关ovs进程输出
 ```
 至此ovs就安装成功了
