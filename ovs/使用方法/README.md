@@ -13,14 +13,14 @@ local4.*	/var/log/gary.log
 
 然后重启日志系统，在shell中运行如下命令
 ```
-/etc/init.d/rsyslog restart #重启日志系统
+/etc/init.d/rsyslog restart 
 ```
 4.安装之前，确保你的内核版本不超过4.18，超过4.18的内核将无法安装，请更换内核。内核版本最好就是4.18，我尝试过4.15版本的内核，但是出现了问题。
 
 5.为了防止安装过程中安装了linux自带的openvswitch模块，我们需要把目录`/lib/modules/4.18.0-14-generic/kernel/net/openvswitch/`删除。目录中的内核版本视你的个人情况而定。
 
 6.接下来运行如下编译安装命令
-编译安装命令：
+编译安装命令(不要复制#之后的说明到终端执行)：
 ```
 ./boot.sh
 ./configure --with-linux=/lib/modules/$(uname -r)/build
@@ -28,7 +28,7 @@ make -j4
 make install
 make modules_install
 modprobe openvswitch
-lsmod | grep openvswitch#可以看到ovs相关的内核模块输出
+lsmod | grep openvswitch #可以看到ovs相关的内核模块输出
 mkdir -p /usr/local/etc/openvswitch
 ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema #可能报错说已经存在，这种情况不用管，继续
 mkdir -p /usr/local/var/run/openvswitch
@@ -40,7 +40,7 @@ ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
     --pidfile --detach
 ovs-vsctl --no-wait init
 ovs-vswitchd --pidfile --detach --log-file
-ps -ea | grep ovs#有相关ovs进程输出
+ps -ea | grep ovs #有相关ovs进程输出
 ```
 至此ovs就安装成功了
 
