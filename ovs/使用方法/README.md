@@ -5,11 +5,10 @@
 
 2.内核态的数据会输出到/var/log/kern.log中。
 
-3.用户态的数据使用rsysylog来记录，需要手动在/etc/rsyslog.conf配置文件中随意位置添加一行(保存文件位置自行修改)：
+3.用户态的数据使用rsysylog来记录，执行下面命令在文件/etc/rsyslog.conf中末尾追加一行(保存文件位置自行修改)：
 ```
-local4.*	/var/log/gary.log
+echo "local4.*    /var/log/gary.log" >>/etc/rsyslog.conf
 ```
-然后到相应目录创建上述命令中的log文件。并修改log文件以及所在目录权限，这个很重要！！！一定要连同文件所在目录的权限也修改，否则gary.log文件无法被ovs写入。
 
 然后重启日志系统，在shell中运行如下命令
 ```
@@ -21,7 +20,7 @@ local4.*	/var/log/gary.log
 
 6.安装基本的编译工具 `sudo apt-get install gcc make autoconf libtool  libelf-dev`
 
-7.修改ovs源码目录下所有文件权限，在ovs源码目录中执行：`chmod -R 777 ./`
+7.修改ovs源码目录下所有文件权限，在ovs源码目录中执行：`chmod -R 777 ./` 以及为脚本添加执行权限`chmod +x ./boot.sh`
 
 8.接下来运行如下编译安装命令(在执行这些安装命令之前建议执行下面的删除ovs命令)
 编译安装命令(不要复制#之后的说明到终端执行)：
