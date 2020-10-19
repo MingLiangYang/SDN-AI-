@@ -61,23 +61,26 @@ sudo ./stop.sh
 具体数据含义入下：
 
   ```
+
 	datapath_Gary文件：
-		timep、 ip  、ip、port、port、 
-		hit_kernalFlow_packNum、find_kernalFlow_msec、ovs_flow_cmd_set_num、
-		ovs_flow_cmd_get_num、ovs_flow_cmd_del_num、ovs_execute_actions_num、
-		hit_catch_num、cmd_fail_times;
+		time、 s_ip  、d_ip、s_port、d_port、 
+		hit_kernal_table（命中内核流表次数）、hit_fail_kernal_table（命中内核流表失败次数）、used_time（查询流表时间）、
+		cmd_set_ex_times、cmd_get_ex_times、cmd_del_ex_times、ovs_execute_actions_times、
+		hit_cache（命中mask cache的次数）、total_times_cache（查询mask cache的次数）、
+		hit_hash_flow（命中mask&flow_key hash表）、total_times_hash_flow（查询mask&flow_key hash表）、
+		cmd_fail_times
 			
 	user_upcall文件：
-		timep、upcall_delay
+		time、upcall_delay
 			
 	datapath_upcall文件：
-		timep、upcall_num、upcall_length
+		time、upcall_num、upcall_length
 
 	user_table_time文件：
-		timep、user_table_time
+		time、user_table_time
 			
 	userspace文件:
-		timep、recv_controller、send_controller、udpif_upcall_handler、hit_user_table_count、user_table_count、main_times。
+		time、recv_controller、send_controller、udpif_upcall_handler、hit_user_table_count、user_table_count、main_times。
   ```
 
   好了，现在可以把数据交给叫我金处理了！
