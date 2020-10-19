@@ -77,7 +77,7 @@ NXST_FLOW reply (xid=0x4):
 cookie=0x2b00000000000005, duration=7836.336s, table=0, n_packets=4702, n_bytes=405940, idle_age=1, priority=100,dl_type=0x88cc actions=CONTROLLER:65535
 ```
 
-**IP流表：**cookie、持续时间、tableID、**包数、比特数**、空闲时间、idle_age、优先级、**ip、入端口、源IP域、	目的IP域、出端口**
+**IP流表**：cookie、持续时间、tableID、**包数、比特数**、空闲时间、idle_age、优先级、**ip、入端口、源IP域、	目的IP域、出端口**
 
 ```
 cookie=0x2a0000000000063a, duration=720.909s, table=0, n_packets=58, n_bytes=21298, idle_timeout=300, idle_age=275, priority=10,ip,in_port=3,nw_src=38.0.0.0/8,nw_dst=192.0.0.0/8 actions=output:1
