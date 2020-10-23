@@ -20,6 +20,8 @@ sudo ./install.sh
 
 那么说明已经安装成功.
 
+如果没有显示上面的信息，运行一下`start.sh`脚本。
+
 # 如何启动OVS并开始数据
 
 实际上,执行安装命令之后OVS已经启动并开始收集数据了,
@@ -61,31 +63,39 @@ sudo ./stop.sh
 具体数据含义入下：
 
   ```
+datapath_Gary：
+    每个数据包经过都会产生一行。每行里面分别存放了：
+    时间戳、 源IP、目的IP、源端口、目的端口、
+    命中内核态流表的数据包数目(累加统计)、命中内核流表失败次数（累加统计）、
+    查找内核态流表使用的毫秒数、
+    ovs_flow_cmd_set()执行次数(累加统计)、ovs_flow_cmd_get()执行次数(累加统计)、ovs_flow_cmd_del()执行次数(累加统计)、ovs_execute_actions()执行次数(累加统计)、
+    命中mask_catch数目(累加统计)、查询mask cache的次数（累加统计）、
+    命中mask&flow_key hash表的次数（累加统计）、查询mask&flow_key hash表的次数（累加统计）、
+    ovs_packet_cmd_execute（）执行失败次数（累加统计）.
 
-	datapath_Gary文件：
-		time、 s_ip  、d_ip、s_port、d_port、 
-		hit_kernal_table（命中内核流表次数）、hit_fail_kernal_table（命中内核流表失败次数）、used_time（查询流表时间）、
-		cmd_set_ex_times、cmd_get_ex_times、cmd_del_ex_times、ovs_execute_actions_times、
-		hit_cache（命中mask cache的次数）、total_times_cache（查询mask cache的次数）、
-		hit_hash_flow（命中mask&flow_key hash表）、total_times_hash_flow（查询mask&flow_key hash表）、
-		cmd_fail_times
-			
-	user_upcall文件：
-		time、upcall_delay
-			
-	datapath_upcall文件：
-		time、upcall_num、upcall_length
+datapath_upcall：
+    内核每产生一个upcall都会产生一条。里面分别存放了：
+    时间戳、upcall数量（累加统计）、当前upcall长度（每个包的长度）
 
-	user_table_time文件：
-		time、user_table_time
-			
-	userspace文件:
-		time、recv_controller、send_controller、udpif_upcall_handler、hit_user_table_count、user_table_count、main_times。
+user_upcall：
+    用户态每收到一个upcall都会产生一行。每行里面存放了：
+    时间戳、upcall时延
+
+userspace ：
+    定时每秒输出一行，每行分别为：
+    时间戳、接收到控制器数据包数（累加统计）、发送给控制器的数据包数（累加统计）、
+    udpif_upcall_handler执行次数（累加统计）、
+    命中用户态流表次数（累加统计）、用户态流表项数目、
+    main函数循环执行次数（累加统计）。
+
+user_table_time：
+    每查询一次用户态流表输出一次，每行分别为：
+    时间戳、查找用户态流表时间
   ```
 
-  好了，现在可以把数据交给叫我金处理了！
+括号表示数据项的说明。
 
-
+累加统计表示从ovs启动到当前时间戳为止发生的次数。
 
 # OVS安装脚本源码的一些说明
 
