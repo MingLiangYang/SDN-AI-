@@ -55,8 +55,9 @@
 #define MC_HASH_ENTRIES		(1u << MC_HASH_SHIFT)
 #define MC_HASH_SEGS		((sizeof(uint32_t) * 8) / MC_HASH_SHIFT)
 
-atomic_t hit_cache=ATOMIC_INIT(0);
-atomic_t total_times_cache=ATOMIC_INIT(0);
+atomic_t hit_mask_cache=ATOMIC_INIT(0);
+atomic_t mask_valid_time=ATOMIC_INIT(0);
+atomic_t total_times_mask_cache=ATOMIC_INIT(0);
 atomic_t hit_hash_flow = ATOMIC_INIT(0);
 atomic_t total_times_hash_flow = ATOMIC_INIT(0);
 static struct kmem_cache *flow_cache;
@@ -546,7 +547,7 @@ static bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
 	mask:相应的掩码，掩码与key相与之后，获取hash值（与之前的hash不一样，之前的hash是为了寻找mask），通过获取的hash值寻找元组所在的链表头
 	n_mask_hit:访问装载flow的hash表的次数
 @ 返回值：返回查找到的流表，失败则返回NULL
-@ 描述：查找到相应元组的链表头部，然后遍历该元组查找相匹配的rule
+@ 描述：将传入的sw_flow_key和mask进行与操作，然后hash查表，因为hash表处理冲突的方式是使用链表，因此还需要遍历查表返回的链表。
 */
 static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 					  const struct sw_flow_key *unmasked,
@@ -558,7 +559,7 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 	u32 hash;
 	struct sw_flow_key masked_key;
 
-	ovs_flow_mask_key(&masked_key, unmasked, false, mask);
+	ovs_flow_mask_key(&masked_key, unmasked, false, mask);// masked_key = mask & unmasked
 	hash = flow_hash(&masked_key, &mask->range);
 	head = find_bucket(ti, hash);
 	(*n_mask_hit)++;
@@ -585,7 +586,8 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
 	n_mask_hit:访问装载flow的hash表的次数
 	index：ma[index]是通过sk_hash查找到的mask
 @ 返回值：返回查找到的流表，失败返回NULL
-@ 描述：如果传入的index是有效的那么只需要查找一个桶内的flow（一个元组内的rule），如果不是有效的那么需要遍历所有的桶
+@ 描述：先将传入的index去取对应mask，调用函数masked_flow_lookup()使用该mask&key去做hash查表，
+		如果没有找到或者index失效，那么会遍所有的mask去调用masked_flow_lookup()函数。
 */
 static struct sw_flow *flow_lookup(struct flow_table *tbl,
 				   struct table_instance *ti,
@@ -597,13 +599,13 @@ static struct sw_flow *flow_lookup(struct flow_table *tbl,
 	struct sw_flow_mask *mask;
 	struct sw_flow *flow;
 	int i;
-
+	
 	if (*index < ma->max) {//如果index有效，那么只需要查询一个元组内的rule
 		mask = rcu_dereference_ovsl(ma->masks[*index]);
 		if (mask) {
 			flow = masked_flow_lookup(ti, key, mask, n_mask_hit);
 			if (flow){
-				atomic_inc(&hit_cache);
+				atomic_inc(&mask_valid_time);
 				return flow;
 			}
 		}
@@ -678,9 +680,10 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
 		int index = hash & (MC_HASH_ENTRIES - 1);//后八位全是1，前面全是0，取出hash后八位的值作为index
 		struct mask_cache_entry *e;
 
-		atomic_inc(&total_times_cache);
+		atomic_inc(&total_times_mask_cache);
 		e = &entries[index];
-		if (e->skb_hash == skb_hash) {
+		if (e->skb_hash == skb_hash) {//这个条件在循环中至多只能满足一次。关于mask_cache的hash冲突处理是插入到下一个skb_hash的八位作为索引的位置
+			atomic_inc(&hit_mask_cache);
 			flow = flow_lookup(tbl, ti, ma, key, n_mask_hit,
 					   &e->mask_index);
 			if (!flow)//没找到，就让cache中相应的mask无效
