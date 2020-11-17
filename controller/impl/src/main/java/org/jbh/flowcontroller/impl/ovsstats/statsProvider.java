@@ -49,7 +49,7 @@ public class statsProvider {
 
 
     private static final long STATS_DELAY_MILL = 10*1000; // 延迟10s启动统计
-    private static final long STATS_INTERVAL_MILL = 3*1000; // 周期3s
+    private static final long STATS_INTERVAL_MILL = 3*1000/3; // 查看统计数据库的周期3s/3 缩短了3倍 为了统计数据记录的更加及时
     final SimpleDateFormat simpleDateFormat = new SimpleDateFormat(DATE_AND_TIME_FORMAT);
     private static final String DATE_AND_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
@@ -70,8 +70,8 @@ public class statsProvider {
             PORT_STATS_PATH = "D:/port_stats.txt";
             FLOW_STATS_PATH = "D:/flow_stats.txt";
         }else{
-            PORT_STATS_PATH = "/home/zju/port_stats.txt";
-            FLOW_STATS_PATH = "/home/zju/flow_stats.txt";
+            PORT_STATS_PATH = "/home/zju/controller/logFile/port_stats.txt";
+            FLOW_STATS_PATH = "/home/zju/controller/logFile/flow_stats.txt";
         }
 
         portfw = new FileWriter(PORT_STATS_PATH);
@@ -104,7 +104,7 @@ public class statsProvider {
 
                 List<Node> listNode = nodesData.getNode();
                 if(listNode == null || listNode.isEmpty()){
-                    LOG.info("JBH: In ScheduleStatsTask.run: no node information");
+                    LOG.debug("JBH: In ScheduleStatsTask.run: no node information");
                     return;
                 }
                 for(Node node : listNode){
@@ -336,7 +336,7 @@ public class statsProvider {
                 .getAugmentation(FlowCapableStatisticsGatheringStatus.class)
                 .getSnapshotGatheringStatusEnd();
         if(snapshotGatheringStatusEnd == null){
-            LOG.info("JBH: In isUpdate: Node:{} snapshotGatheringStatusEnd is null, stop writeFile",datapath);
+            LOG.debug("JBH: In isUpdate: Node:{} snapshotGatheringStatusEnd is null, stop writeFile",datapath);
             return false;
         }
 
@@ -355,9 +355,9 @@ public class statsProvider {
                 nodeTimeMap.put(datapath,dateAndTime);//修复bug 原来的putIfAbsent没效果
                 return true;
             }else{
-                LOG.info("JBH: In isUpdate: Node:{}, startTime:{}, last dateAndTime:{} = dateAndTime:{}",datapath,
+                LOG.debug("JBH: In isUpdate: node.endTime = nodeTimeMap.time, can't update. Node:{}, startTime:{}, endTime:{}",datapath,
                         node.getAugmentation(FlowCapableStatisticsGatheringStatus.class).getSnapshotGatheringStatusStart().getBegin().getValue(),
-                        nodeTimeMap.get(datapath).getValue(),dateAndTime.getValue());
+                        nodeTimeMap.get(datapath).getValue());
                 return false;
             }
         }

@@ -126,7 +126,7 @@ public class PacketHandler implements PacketProcessingListener
                 if(osName!=null && !osName.isEmpty() && osName.substring(0,1).equals("W")){
                     path = "D:/" + ingressNode.substring(9) + "_pktin.txt";
                 }else{
-                    path = "/home/zju/" + ingressNode + "_pktin.txt";
+                    path = "/home/zju/controller/logFile/" + ingressNode + "_pktin.txt";
                 }
 
                 fwMap.putIfAbsent(ingressNode,new FileWriter(path));
